@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+
+<launch>
+
+  <!-- arguments -->
+  <arg name="goal_topic" default="/goal" />
+  <arg name="mcap_topic" default="/mocap"/>
+  <arg name="cmdV_topic" default="/cmdV"/>
+  <arg name="cmd_vel_topic" default="/cmd_vel"/>
+  <arg name="cmdVtemp_topic" default="/cmdVtemp"/>
+  <arg name="cf_frame" default="/cf" />
+
+    <!-- add outer-loop controller, hover only for now -->
+    <node name="data_recorder" pkg="crazyflie_game" type="plotter.py" output="screen">
+        <param name="goal_topic" value="$(arg goal_topic)" />
+        <param name="mcap_topic" value="$(arg mcap_topic)" />
+        <param name="cmdV_topic" value="$(arg cmdV_topic)" />
+        <param name="cmd_vel_topic" value="$(arg cmd_vel_topic)" />
+        <param name="cmdVtemp_topic" value="$(arg cmdVtemp_topic)" />
+        <param name="cf_frame" value="$(arg cf_frame)" />
+    </node>
+
+</launch>
