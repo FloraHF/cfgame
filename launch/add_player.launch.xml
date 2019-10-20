@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+
+<launch>
+
+  <!-- arguments -->
+  <arg name="world_frame" default="/world" />
+  <arg name="uri" default="radio://0/84/1M/E7E7E7E703" />
+  <arg name="frame" default="cf4" />
+  <arg name="id" default="D1"/>
+  <arg name="v" default=".3"/>
+
+  <!-- the intruder crazyflie -->
+  <group ns='$(arg frame)'>
+    <!-- add crazyflie -->
+    <include file="$(find crazyflie_driver)/launch/crazyflie_add.launch">
+      <arg name="uri" value="$(arg uri)" />
+      <arg name="tf_prefix" value="$(arg frame)" />
+      <arg name="enable_logging" value="True" />
+    </include>
+
+    <!-- add inner-loop controller -->
+    <include file="$(find crazyflie_controller)/launch/crazyflie2.launch">
+      <arg name="frame" value="$(arg frame)" />
+    </include>
+    <!-- add outer-loop controller, hover only for now -->
+    <include file="$(find crazyflie_game)/launch/game_controller.launch">
+      <arg name="world_frame" value="$(arg world_frame)" />
+      <arg name="cf_frame" value="$(arg frame)" />
+      <arg name="player_id" value="$(arg id)"/>
+      <arg name="velocity" value="$(arg v)"/>
+    </include>
+    
+    <!-- add plotter -->
+    <include file="$(find crazyflie_game)/launch/player_recorder.launch">
+      <arg name="cf_frame" value="/$(arg frame)" />
+    </include>
+  </group>
+
+</launch>

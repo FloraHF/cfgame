@@ -3,20 +3,17 @@
 <launch>
 
   <!-- arguments -->
-  <arg name="player_id" default="D1"/>
-  <arg name="velocity" default=".1"/>
-  <arg name="goal_topic" default="/goal" />
-  <arg name="cmdV_topic" default="/cmdV" />
   <arg name="world_frame" default="/world" />
   <arg name="cf_frame" default="/cf" />
+  <arg name="player_id" default="D1"/>
+  <arg name="velocity" default=".1"/>
 
     <!-- add outer-loop controller, hover only for now -->
-    <node name="game_controller" pkg="crazyflie_game" type="controller.py" output="screen">
-        <param name="player_id" value="$(arg player_id)"/>
-        <param name="goal_topic" value="$(arg goal_topic)" />
-        <param name="cmdV_topic" value="$(arg cmdV_topic)" />
-        <param name="frame" value="$(arg cf_frame)" />
-        <param name="worldFrame" value="$(arg world_frame)" />
+  <node name="game_controller" pkg="crazyflie_game" type="controller.py" output="screen">
+      <param name="worldFrame" value="$(arg world_frame)" />
+      <param name="frame" value="$(arg cf_frame)" />
+      <param name="player_id" value="$(arg player_id)"/>
+      <param name='velocity' value="$(arg velocity)">
     </node>
 
 </launch>

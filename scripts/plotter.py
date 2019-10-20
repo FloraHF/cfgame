@@ -249,21 +249,17 @@ class Plotter(object):
 
 
 if __name__ == '__main__':
-    rospy.init_node('data_recorder', anonymous=True)
+    rospy.init_node('player_recorder', anonymous=True)
+
 
     cf_id = rospy.get_param("~cf_frame", "/cf3")
-    goal_topic = rospy.get_param("~goal_topic", 'goal')
-    cmdV_topic = rospy.get_param("~cmdV_topic", 'cmdV')
-    cmd_vel_topic = rospy.get_param("~cmd_vel_topic", 'cmd_vel')
-    Vtemp_topic = rospy.get_param("~cmdVtemp_topic", 'cmdVtemp')
-    mocap_topic = rospy.get_param("~mcap_topic", 'mocap')
 
     plotter = Plotter(cf_id=cf_id,
-                      goal=goal_topic,
-                      cmdV=cmdV_topic,
-                      cmd_vel=cmd_vel_topic,
-                      Vtemp=Vtemp_topic,
-                      mocap=mocap_topic)
+                      goal=cf_id+'/goal',
+                      cmdV=cf_id+'/cmdV',
+                      cmd_vel=cf_id+'/cmd_vel',
+                      Vtemp=cf_id+'/cmdVtemp',
+                      mocap=cf_id+'/mocap')
     L = 1000
     while not rospy.is_shutdown():
         plotter.plot_locs(L)

@@ -140,11 +140,12 @@ if __name__ == '__main__':
     worldFrame = rospy.get_param("~worldFrame", "/world")
     frame = rospy.get_param("~frame", "/cf2")
 
-    goal_topic = rospy.get_param("~goal_topic", 'goal')
-    cmdV_topic = rospy.get_param("~cmdV_topic", 'cmdV')
+    goal_topic = frame + '/goal'
+    cmdV_topic = frame + '/cmdV'
 
     strategy = Strategy(player_id, velocity,
-                        goal_topic, cmdV_topic,
+                        goal_topic, 
+                        cmdV_topic,
                         worldFrame, frame)
 
     strategy.game()
