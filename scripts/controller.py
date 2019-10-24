@@ -8,6 +8,7 @@ from geometry_msgs.msg import PoseStamped, Twist
 from optitrack_broadcast.msg import Mocap
 
 from coords import phy_to_thtd
+from Config import Config
 
 
 class Strategy():
@@ -48,6 +49,12 @@ class Strategy():
     def _getLocI(self, data):
         self._locations['I'] = np.array([data.position[0], data.position[1]])
 
+
+    def _is_capture(self):
+        d1 = np.linalg.norm(self._locations['D1'] - self._locations['I'])
+        d2 = np.linalg.norm(self._locations['D2'] - self._locations['I'])
+        return (d1 < Config.CAP_RANGE) or (d2 < Config.CAP_RANGE)
+
     def updateGoal(self, goal=None, init=False):
 
         if init:
@@ -68,6 +75,9 @@ class Strategy():
             self._goal_msg.pose.orientation.z = quaternion[2]
             self._goal_msg.pose.orientation.w = quaternion[3]
 
+        if self._is_capture() and self._id == 'I':
+            self._goal_msg.pose.position.z = 0.1
+
     def _z_strategy(self, x):
 
         s, bases = phy_to_thtd(x)
@@ -80,6 +90,28 @@ class Strategy():
             spsi = -(s[0] - s[1]*cos(s[2]))
             psi = atan2(spsi, cpsi)
             return psi + atan2(-bases[1][1], -bases[1][0])
+
+    def _i_strategy(self, x):
+        s = phy_to_thtalpha(x)
+        ds, bases = phy_to_thtd(x)
+
+        if self._id == 'D1':
+            phi_2 = pi/2 - s[1]
+            psi = -(pi/2 - LB/2 + s[1])
+            d = ds[1]*(sin(phi_2)/sin(LB/2))
+            l1 = sqrt(ds[0]**2 + d**2 - 2*ds[0]*d*cos(s[2] + psi))
+            
+            cA = (d**2 + l1**2 - ds[0]**2)/(2*d*l1)
+            sA = sin(s[2] + psi)*(ds[0]/l1)
+            A = atan2(sA, cA)
+            phi_1 = -(pi - (s[2] + psi) - A)
+            return phi_1 + atan2(bases[0][1], bases[0][0])
+        elif self._id == 'D2':
+            phi_2 = pi/2 - s[1]
+            return phi_2 + atan2(bases[1][1], bases[1][0])
+        elif self._id == 'I':
+            psi = -(pi/2 - LB/2 + s[1])
+            return psi + atan2(-bases[1][1], -bases[1][0])  
 
     def _sendCmd(self, cmd):
         if cmd == 1:
