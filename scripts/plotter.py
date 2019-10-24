@@ -40,7 +40,8 @@ class Plotter(object):
                  rate=10):
 
         self._init_time = self._get_time()
-        self._save_interval = 50
+        self._save_interval = 5
+        self._cf_id = cf_id
 
         self._locs = DataRecorder(max_size=max_size)
         self._goals = DataRecorder(max_size=max_size)
@@ -188,7 +189,7 @@ class Plotter(object):
             for ax in self._locs_plot['axs']:
                 ax.grid()
             if int(t_loc[-1]) % self._save_interval == 0:
-                self._locs_plot['fig'].savefig(self._results_dir + 'hovering_locs.png')
+                self._locs_plot['fig'].savefig(self._results_dir + self._cf_id + '_hovering_locs.png')
 
     def plot_eulers(self, L):
         t = self._cmd_vels.time
@@ -216,7 +217,7 @@ class Plotter(object):
             for ax in self._euler_plot['axs']:
                 ax.grid()
             if int(t[-1]) % self._save_interval == 0:
-                self._euler_plot['fig'].savefig(self._results_dir + 'hovering_euler.png')
+                self._euler_plot['fig'].savefig(self._results_dir + self._cf_id + '_hovering_euler.png')
 
     def plot_vels(self, L):
         t_vel = self._vels.time
@@ -245,7 +246,7 @@ class Plotter(object):
             for ax in self._vels_plot['axs']:
                 ax.grid()
             if int(t_vel[-1]) % self._save_interval == 0:
-                self._vels_plot['fig'].savefig(self._results_dir + 'hovering_vels.png')
+                self._vels_plot['fig'].savefig(self._results_dir + self._cf_id + '_hovering_vels.png')
 
 
 if __name__ == '__main__':

@@ -27,7 +27,7 @@ class GamePlotter(object):
                             'I': DataRecorder(max_size=max_size)}
         self._sub_callback_dict = {'D1': self._getLocD1, 'D2': self._getLocD2, 'I': self._getLocI}
         self._subs = dict()
-        for p_id, cf_frame in player_dict.items():
+        for p_id, cf_frame in self._player_dict.items():
             self._subs.update({p_id: rospy.Subscriber('/' + cf_frame + '/mocap', Mocap, self._sub_callback_dict[p_id])})
 
         self._locs_plot = self._init_locs_plot()
@@ -51,7 +51,7 @@ class GamePlotter(object):
         self._locations['I'].record(self._get_time()-self._init_time, np.array([data.position[0], data.position[1]]))
 
     def _init_locs_plot(self):
-        fig, ax = plt.figure(tight_layout=True)
+        fig, ax = plt.subplots(tight_layout=True)
         ax.set_xlabel('x(m)')
         ax.set_ylabel('y(m)')
         ax.grid()
@@ -66,26 +66,20 @@ class GamePlotter(object):
         # axs[2].set_ylabel('y(m)')
 
         plt.show(block=False)
-        return {'fig': fig, 'axs': axs}
+        return {'fig': fig, 'axs': ax}
 
     def plot_locs(self):
         xD1 = np.asarray(self._locations['D1'].data)
-        xD2 = np.asarray(self._locations['D1'].data)
+        xD2 = np.asarray(self._locations['D2'].data)
         xI = np.asarray(self._locations['I'].data)
 
-        lD1, lD2, lI = 
-
-        lb1, ub1 = max(0, l1 - L), l1 - 1
-        lb2, ub2 = max(0, l2 - L), l2 - 1
-        if len(xD1)>1 and len(xD2)>1 and len(xI)>1:
+        if len(xD1)>10 and len(xD2)>10 and len(xI)>10:
             self._locs_plot['axs'].clear()
-            self._locs_plot['axs'].plot(xD1[:,0], xD1[:,1], 'b')
-            self._locs_plot['axs'].plot(xD2[:,0], xD2[:,1], 'g')
-            self._locs_plot['axs'].plot(xI[:,0], xI[:,1], 'r')
+            self._locs_plot['axs'].plot(xD1[10:,0], xD1[10:,1], 'b')
+            self._locs_plot['axs'].plot(xD2[10:,0], xD2[10:,1], 'g')
+            self._locs_plot['axs'].plot(xI[10:,0], xI[10:,1], 'r')
             self._locs_plot['fig'].canvas.draw()
-            ax.grid()
-            for ax in self._locs_plot['axs']:
-                ax.grid()
+            self._locs_plot['axs'].grid()
             if int(len(xI)) % self._save_interval == 0:
                 self._locs_plot['fig'].savefig(self._results_dir + 'traj.png')
 

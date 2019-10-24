@@ -8,6 +8,9 @@
   <arg name="frame" default="cf4" />
   <arg name="id" default="D1"/>
   <arg name="v" default=".3"/>
+  <arg name="r" default=".5"/>
+  <arg name="a" default=".5"/>
+  <arg name="z" default=".5"/>
 
   <!-- the intruder crazyflie -->
   <group ns='$(arg frame)'>
@@ -28,12 +31,15 @@
       <arg name="cf_frame" value="$(arg frame)" />
       <arg name="player_id" value="$(arg id)"/>
       <arg name="velocity" value="$(arg v)"/>
+      <arg name="cap_range" value="$(arg r)"/>
+      <arg name="speed_ratio" value="$(arg a)"/>
+      <arg name="z" value="$(arg z)"/>
     </include>
     
     <!-- add plotter -->
-    <include file="$(find crazyflie_game)/launch/player_recorder.launch">
+    <!-- <include file="$(find crazyflie_game)/launch/player_recorder.launch">
       <arg name="cf_frame" value="/$(arg frame)" />
-    </include>
+    </include> -->
   </group>
 
 </launch>

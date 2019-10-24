@@ -1,25 +1,37 @@
 <?xml version="1.0"?>
 
 <launch>
-
+  <!-- uris of the crazyflies
+  cf1:
+  cf2: "radio://0/84/1M/E7E7E7E702"
+  cf3: "radio://0/84/1M/E7E7E7E703"
+  cf4: "radio://0/88/1M/E7E7E7E704"
+  cf5: "radio://0/88/1M/E7E7E7E705"
+  -->
   <!-- arguments -->
   <arg name="world_frame" default="/world" />
   <arg name="server" default="192.168.2.230" />
   <arg name="port" default="3883" />
+  <arg name="r" default=".4"/>
 
-  <arg name="uri_D1" default="radio://0/84/1M/E7E7E7E703" />
+  <arg name="uri_D1" default="radio://0/88/1M/E7E7E7E704" />
   <arg name="frame_D1" default="cf4" />
   <arg name="id_D1" default="D1"/>
-  <arg name="v_D" default=".3"/>
+  <arg name="v_D" default=".1"/>
+  <arg name="z_D1" default=".3"/>
 
-  <arg name="uri_D2" default="radio://0/84/1M/E7E7E7E703" />
-  <arg name="frame_D2" default="cf4" />
+  <arg name="uri_D2" default="radio://0/88/1M/E7E7E7E705" />
+  <arg name="frame_D2" default="cf5" />
   <arg name="id_D2" default="D2"/>
+  <arg name="z_D2" default=".35"/>
 
   <arg name="uri_I" default="radio://0/84/1M/E7E7E7E703" />
   <arg name="frame_I" default="cf3" />
   <arg name="id_I" default="I"/>
-  <arg name="v_I" default=".4"/>
+  <arg name="v_I" default=".15"/>
+  <arg name="z_I" default=".6"/>
+
+  <arg name="a" default="$(arg v_D)/$(arg v_I)"/>
   
   <!-- start crazyflie_client -->
   <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
@@ -27,7 +39,7 @@
   <!-- run vrpn client -->
   <include file="$(find optitrack_broadcast)/launch/optitrack_broadcast_p300.launch">
     <arg name="server" value="$(arg server)" />
-    <arg name="frames" value="$(arg frame_D1) $(arg frame_D2) $(arg frame_DI)" />
+    <arg name="frames" value="$(arg frame_D1) $(arg frame_D2) $(arg frame_I)" />
   </include>
 
   <!-- add the intruder -->
@@ -37,6 +49,9 @@
     <arg name="frame" default="$(arg frame_I)" />
     <arg name="id" default="$(arg id_I)"/>
     <arg name="v" default="$(arg v_I)"/>
+    <arg name="r" default="$(arg r)"/>
+    <arg name="a" default="$(arg a)"/>
+    <arg name="z" default="$(arg z_D1)"/>
   </include>
 
   <!-- add defender 1 -->
@@ -46,6 +61,9 @@
     <arg name="frame" default="$(arg frame_D1)" />
     <arg name="id" default="$(arg id_D1)"/>
     <arg name="v" default="$(arg v_D)"/>
+    <arg name="r" default="$(arg r)"/>
+    <arg name="a" default="$(arg a)"/>
+    <arg name="z" default="$(arg z_D2)"/>
   </include>
 
   <!-- add defender 2 -->
@@ -55,13 +73,16 @@
     <arg name="frame" default="$(arg frame_D2)" />
     <arg name="id" default="$(arg id_D2)"/>
     <arg name="v" default="$(arg v_D)"/>
+    <arg name="r" default="$(arg r)"/>
+    <arg name="a" default="$(arg a)"/>
+    <arg name="z" default="$(arg z_I)"/>
   </include>
 
   <!-- game data recorder -->
   <node name="game_recorder" pkg="crazyflie_game" type="game_recorder.py" output="screen">
-      <param name="D1" value="$(arg D1)"/>
-      <param name="D2" value="$(arg D2)" />
-      <param name="I" value="$(arg I)" />
+      <param name="D1" value="$(arg frame_D1)"/>
+      <param name="D2" value="$(arg frame_D2)" />
+      <param name="I" value="$(arg frame_I)" />
   </node>
 
 
