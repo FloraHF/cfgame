@@ -32,16 +32,23 @@ class PlayerRecorder(object):
 
     def __init__(self, cf_id="/cf2",
                  goal="/cf2/goal",
-                 cmdV='/cf2/cmdV',
+                 # cmdV='/cf2/cmdV',
                  cmd_vel='cf2/cmd_vel',
-                 # Vtemp='/cf2/cmdVtemp',
+                 Vtemp='/cf2/cmdVtemp',
                  mocap="cf2/mocap",
                  max_size=1e4,
                  rate=10):
 
+        self._cf_id = cf_id
         self._init_time = self._get_time()
         self._save_interval = 5
-        self._cf_id = cf_id
+        script_dir = os.path.dirname(__file__)
+        self._results_dir = os.path.join(script_dir, 'Results' + self._cf_id + '/live/')
+        self._data_dir = os.path.join(script_dir, 'Results' + self._cf_id + '/data/')
+        if not os.path.isdir(self._results_dir):
+            os.makedirs(self._results_dir)
+        if not os.path.isdir(self._data_dir):
+            os.makedirs(self._data_dir)
 
         self._locs = DataRecorder(max_size=max_size)
         self._goals = DataRecorder(max_size=max_size)
@@ -55,20 +62,15 @@ class PlayerRecorder(object):
         self._goal_sub = rospy.Subscriber(goal, PoseStamped, self._update_goal)
         self._mocap_sub = rospy.Subscriber(mocap, Mocap, self._update_mocap)
         # self._cmdV_sub = rospy.Subscriber(cmdV, Float32MultiArray, self._update_cmdV)
-        # self._cmdVtemp_sub = rospy.Subscriber(Vtemp, Twist, self._update_cmdVtemp)
+        self._cmdVtemp_sub = rospy.Subscriber(Vtemp, Twist, self._update_cmdVtemp)
         self._cmd_vel_sub = rospy.Subscriber(cmd_vel, Twist, self._update_cmd_vel)
+        print(mocap)
+        print(goal)
+        print(cmd_vel)
 
-        self._locs_plot = self._init_locs_plot()
-        self._euler_plot = self._init_euler_plot()
-        self._vels_plot = self._init_vels_plot()
-
-        script_dir = os.path.dirname(__file__)
-        self._results_dir = os.path.join(script_dir, 'Results'+self._cf_id+'/live/')
-        self._data_dir = os.path.join(script_dir, 'Results'+self._cf_id+'/data/')
-        if not os.path.isdir(self._results_dir):
-            os.makedirs(self._results_dir)
-        if not os.path.isdir(self._data_dir):
-            os.makedirs(self._data_dir)
+        # self._locs_plot = self._init_locs_plot()
+        # self._euler_plot = self._init_euler_plot()
+        # self._vels_plot = self._init_vels_plot()
 
     def _get_time(self):
         t = rospy.Time.now()
@@ -141,16 +143,19 @@ class PlayerRecorder(object):
         t = self._get_time() - self._init_time
         
         self._locs.record(t, mocap.position)
-        with open(self._data_dir+'location.csv') as f:
+        dirc = os.path.join(self._data_dir, 'location.csv')
+        with open(dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, mocap.position[0], mocap.position[1], mocap.position[2]))
 
         self._vels.record(t, mocap.velocity)
-        with open(self._data_dir+'velocity.csv') as f:
+        dirc = os.path.join(self._data_dir, 'velocity.csv')
+        with open(dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, mocap.velocity[0], mocap.velocity[1], mocap.velocity[2]))
 
         euler = self._qt_to_euler(mocap)
         self._eulers.record(t, euler)
-        with open(self._data_dir+'euler.csv') as f:
+        dirc = os.path.join(self._data_dir, 'euler.csv')
+        with open(dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, euler[0], euler[1], euler[2]))
 
     def _update_goal(self, goal):
@@ -161,7 +166,8 @@ class PlayerRecorder(object):
         t = self._get_time() - self._init_time
         self._goals.record(t, np.array([x, y, z]))
 
-        with open(self._data_dir+'goal.csv') as f:
+        dirc = os.path.join(self._data_dir, 'goal.csv')
+        with open(dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, x, y, z))
 
     def _update_cmd_vel(self, cmd):
@@ -171,26 +177,27 @@ class PlayerRecorder(object):
         t = self._get_time() - self._init_time
         self._cmd_vels.record(t, np.array([x, y, z]))
 
-        with open(self._data_dir+'cmd_vel.csv') as f:
+        dirc = os.path.join(self._data_dir, 'cmd_vel.csv')
+        with open(dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, x, y, z))
 
-    # def _update_cmdVtemp(self, cmdVtemp):
-    #     x = cmdVtemp.linear.x
-    #     y = cmdVtemp.linear.y
-    #     z = cmdVtemp.linear.z
-    #     t = self._get_time() - self._init_time
-
-    #     self._cmdVs.record(t, np.array([x, y, z]))
-
-    #     with open(self._data_dir+'cmdVtemp.csv') as f:
-    #         f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, x, y, z))
-
-    def _update_cmdV(self, cmdV):
+    def _update_cmdVtemp(self, cmdVtemp):
+        x = cmdVtemp.linear.x
+        y = cmdVtemp.linear.y
+        z = cmdVtemp.linear.z
         t = self._get_time() - self._init_time
-        self._cmdVs.record(t, cmdV.data)
 
-        with open(self._data_dir+'cmdVtemp.csv') as f:
-            f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, cmdV.data[0], cmdV.data[1], cmdV.data[2]))
+        self._cmdVs.record(t, np.array([x, y, z]))
+        dirc = os.path.join(self._data_dir, 'cmdVtemp.csv')
+        with open(dirc, 'a') as f:
+            f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, x, y, z))
+
+    # def _update_cmdV(self, cmdV):
+    #     t = self._get_time() - self._init_time
+    #     self._cmdVs.record(t, cmdV.data)
+    #
+    #     with open(self._data_dir+'cmdVtemp.csv') as f:
+    #         f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, cmdV.data[0], cmdV.data[1], cmdV.data[2]))
 
     def plot_locs(self, L):
         t_loc = self._locs.time
@@ -282,16 +289,15 @@ class PlayerRecorder(object):
 
 if __name__ == '__main__':
     rospy.init_node('player_recorder', anonymous=True)
-
-
     cf_id = rospy.get_param("~cf_frame", "/cf3")
 
     recorder = PlayerRecorder(cf_id=cf_id,
                       goal=cf_id+'/goal',
-                      cmdV=cf_id+'/cmdV',
+                      # cmdV=cf_id+'/cmdV',
                       cmd_vel=cf_id+'/cmd_vel',
-                      # Vtemp=cf_id+'/cmdVtemp',
+                      Vtemp=cf_id+'/cmdVtemp',
                       mocap=cf_id+'/mocap')
+    rospy.spin()
     # L = 1000
     # while not rospy.is_shutdown():
     #     recorder.plot_locs(L)

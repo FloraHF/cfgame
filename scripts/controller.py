@@ -6,17 +6,18 @@ import numpy as np
 from copy import deepcopy
 from math import sin, cos, sqrt, atan2, acos, pi
 
-from std_srv import Empty
+from std_srvs.srv import Empty
 from geometry_msgs.msg import PoseStamped, Twist
 from optitrack_broadcast.msg import Mocap
 
-from coords import phy_to_thtd, phy_to_thtalpha
+from coords import phy_to_thtd, phy_to_thtalpha, phy_to_xyz
+
 
 class Strategy():
 
     def __init__(self, player_id, velocity,
                  worldFrame, frame, rate=10,
-                 z=.4, r = .5, a=.8,
+                 z=.4, r=.5, a=.8,
                  player_dict={'D1': 'cf4', 'D2': 'cf5', 'I': 'cf3'}):
 
         self._worldFrame = worldFrame
@@ -30,12 +31,12 @@ class Strategy():
         self._r = r
         self._cap_time = 2.
         a = a.split('/')
-        self._a = float(a[0])/float(a[1])
+        self._a = float(a[0]) / float(a[1])
         self._LB = acos(self._a)
 
-        self._init_locations = {'D1': np.array([-.6, -0.1]),
-                           'D2': np.array([.6, -0.1]),
-                           'I': np.array([0., .0])}
+        self._init_locations = {'D1': np.array([-.6, -0.0]),
+                                'D2': np.array([.6, -0.0]),
+                                'I': np.array([0., 0.2])}
         self._locations = deepcopy(self._init_locations)
 
         self._goal_msg = PoseStamped()
@@ -45,24 +46,26 @@ class Strategy():
         self._subs = dict()
         for p_id, cf_frame in player_dict.items():
             self._subs.update({p_id: rospy.Subscriber('/' + cf_frame + '/mocap', Mocap, self._sub_callback_dict[p_id])})
-        
+
         self._goal_pub = rospy.Publisher('goal', PoseStamped, queue_size=1)
         self._cmdV_pub = rospy.Publisher('cmdV', Twist, queue_size=1)
-        self._goal_pub.publish(self._goal_msg)
 
-        # srv_name = '/'+player_dict[self._id]+'/cftakeoff'
-        # rospy.wait_for_service(srv_name)
-        # rospy.loginfo('found' + srv_name + 'service')
-        # self._takeoff = rospy.ServiceProxy(srv_name, Empty)
-        srv_name = '/'+player_dict[self._id]+'/cfauto'
+        # print(self._goal_msg.pose.position.x, self._goal_msg.pose.position.y)
+
+        srv_name = '/' + player_dict[self._id] + '/cftakeoff'
         rospy.wait_for_service(srv_name)
         rospy.loginfo('found' + srv_name + 'service')
-        self._auto = rospy.ServiceProxy(srv_name, Empty)
+        self.takeoff = rospy.ServiceProxy(srv_name, Empty)
 
-        srv_name = '/'+player_dict[self._id]+'/cfland'
+        srv_name = '/' + player_dict[self._id] + '/cfauto'
         rospy.wait_for_service(srv_name)
         rospy.loginfo('found' + srv_name + 'service')
-        self._land = rospy.ServiceProxy(srv_name, Empty)
+        self.auto = rospy.ServiceProxy(srv_name, Empty)
+
+        srv_name = '/' + player_dict[self._id] + '/cfland'
+        rospy.wait_for_service(srv_name)
+        rospy.loginfo('found' + srv_name + 'service')
+        self.land = rospy.ServiceProxy(srv_name, Empty)
 
     def _get_time(self):
         t = rospy.Time.now()
@@ -81,7 +84,7 @@ class Strategy():
         d1 = np.linalg.norm(self._locations['D1'] - self._locations['I'])
         d2 = np.linalg.norm(self._locations['D2'] - self._locations['I'])
         cap = (d1 < self._r) or (d2 < self._r)
-        print('captured:', cap, d1, d2)
+        # print('captured:', cap, d1, d2)
         return cap
 
     def _updateGoal(self, goal=None, init=False):
@@ -113,33 +116,33 @@ class Strategy():
 
         s, bases = phy_to_thtd(x)
         if self._id == 'D1':
-            return -pi/2 + atan2(bases[0][1], bases[0][0])
+            return -pi / 2 + atan2(bases[0][1], bases[0][0])
         elif self._id == 'D2':
-            return pi/2 + atan2(bases[1][1], bases[1][0])
+            return pi / 2 + atan2(bases[1][1], bases[1][0])
         elif self._id == 'I':
             cpsi = s[1] * sin(s[2])
             spsi = -(s[0] - s[1] * cos(s[2]))
             psi = atan2(spsi, cpsi)
             return psi + atan2(-bases[1][1], -bases[1][0])
 
-
     def _h_strategy(self, x):
 
         s = phy_to_xyz(x)
-        x_ = {'D1': np.array([0, -s[2]]), 
-              'D2': np.array([0, s[2]]), 
+        x_ = {'D1': np.array([0, -s[2]]),
+              'D2': np.array([0, s[2]]),
               'I': np.array([s[0], s[1]])}
 
-        Delta = sqrt(np.maximum(s[0]**2 - (1 - 1/self._a**2)*(s[0]**2 + s[1]**2 - (s[2]/self._a)**2), 0)) 
-        if (s[0] + Delta)/(1 - 1/self._a**2) - s[0] > 0:
-            xP = (s[0] + Delta)/(1 - 1/self._a**2)
+        Delta = sqrt(
+            np.maximum(s[0] ** 2 - (1 - 1 / self._a ** 2) * (s[0] ** 2 + s[1] ** 2 - (s[2] / self._a) ** 2), 0))
+        if (s[0] + Delta) / (1 - 1 / self._a ** 2) - s[0] > 0:
+            xP = (s[0] + Delta) / (1 - 1 / self._a ** 2)
         else:
-            xP = - (s[0] + Delta)/(1 - 1/self._a**2)
+            xP = - (s[0] + Delta) / (1 - 1 / self._a ** 2)
 
-        P = np.array([xP, 0 , 0])
+        P = np.array([xP, 0, 0])
         D1_P = P - np.concatenate((x_['D1'], [0]))
         D2_P = P - np.concatenate((x_['D2'], [0]))
-        I_P  = P - np.concatenate((x_['I'], [0]))
+        I_P = P - np.concatenate((x_['I'], [0]))
         D1_I, D2_I, D1_D2 = get_vecs(x_)
 
         if self._id == 'D1':
@@ -177,17 +180,42 @@ class Strategy():
     def _m_strategy(self, x):
 
         s = phy_to_xyz(x)
-        if s[0]<-0.1:
-            return h_strategy(x)
+        if s[0] < -0.1:
+            return self._h_strategy(x)
         else:
-            return i_strategy(x)
+            return self._i_strategy(x)
 
-    # def hover(self):
-    #     # self._sendCmd(1)
-    #     while not rospy.is_shutdown():
-    #         self._updateGoal(goal=self._init_locations[self._id])
-    #         self._goal_pub.publish(self._goal_msg)
-    #         self._rate.sleep()
+    def hover(self):
+        while not rospy.is_shutdown():
+            self._updateGoal(goal=self._init_locations[self._id])
+            self._goal_pub.publish(self._goal_msg)
+            self._rate.sleep()
+
+    def waypoints(self):
+        rospy.sleep(10)
+        _t = self._get_time()
+        pts = [np.array([-.5,  .5]),
+               np.array([-.5, -.5]),
+               np.array([ .5, -.5]),
+               np.array([ .5,  .5]),
+               np.array([-.5,  .5])]
+        step = 3
+        temp = 0
+        pt_id = 0
+        while not rospy.is_shutdown():
+            t = self._get_time()
+            dt = t - _t
+            _t = t
+            if temp < step:
+                temp += dt
+            else:
+                temp = 0
+                pt_id = min(pt_id+1, 4)
+            self._updateGoal(goal=pts[pt_id])
+            # print(pts[pt_id])
+            self._goal_pub.publish(self._goal_msg)
+            self._rate.sleep()
+
 
     def game(self, policy=_z_strategy):
 
@@ -198,16 +226,16 @@ class Strategy():
         time_end = 0
         while not rospy.is_shutdown():
             t = self._get_time()
-            dt = t - _t 
+            dt = t - _t
             _t = t
             if not end:
                 if self._is_capture():
                     cap = True
                     if _cap:
-                        time_inrange += dt 
+                        time_inrange += dt
                     else:
                         time_inrange = 0
-                    _cap = cap 
+                    _cap = cap
                 if time_inrange >= self._cap_time:
                     end = True
                     self._updateGoal(self._locations[self._id])
@@ -221,9 +249,10 @@ class Strategy():
                 cmdV.linear.x = vx
                 cmdV.linear.y = vy
                 self._cmdV_pub.publish(cmdV)
-                # self._updateGoal()
-                # self._goal_pub.publish(self._goal_msg)                    
+                self._updateGoal()
+                self._goal_pub.publish(self._goal_msg)
             else:
+                self._goal_pub.publish(self._goal_msg)
                 if self._id == 'I':
                     self._land()
 
@@ -246,4 +275,7 @@ if __name__ == '__main__':
                         worldFrame, frame,
                         z=z, r=cap_range, a=speed_ratio)
 
-    strategy.game()
+    # if strategy._id =='D1':
+    #     print('takeoff')
+    #     strategy.takeoff()
+    strategy.waypoints()

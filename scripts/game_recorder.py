@@ -9,7 +9,8 @@ import matplotlib.gridspec as gridspec
 from std_msgs.msg import Float32MultiArray
 from geometry_msgs.msg import PoseStamped, Twist
 from crazyflie_game.msg import Mocap
-from plotter import DataRecorder
+from player_recorder import DataRecorder
+
 
 class GameRecorder(object):
 
@@ -22,9 +23,9 @@ class GameRecorder(object):
         self._player_dict = {'D1': D1, 'D2': D2, 'I': I}
         self.rate = rospy.Rate(rate)
 
-        self._locations = {'D1': DataRecorder(max_size=max_size), 
-                            'D2': DataRecorder(max_size=max_size), 
-                            'I': DataRecorder(max_size=max_size)}
+        self._locations = {'D1': DataRecorder(max_size=max_size),
+                           'D2': DataRecorder(max_size=max_size),
+                           'I': DataRecorder(max_size=max_size)}
         self._sub_callback_dict = {'D1': self._getLocD1, 'D2': self._getLocD2, 'I': self._getLocI}
         self._subs = dict()
         for p_id, cf_frame in self._player_dict.items():
@@ -42,13 +43,13 @@ class GameRecorder(object):
         return t.secs + t.nsecs * 1e-9
 
     def _getLocD1(self, data):
-        self._locations['D1'].record(self._get_time()-self._init_time, np.array([data.position[0], data.position[1]]))
+        self._locations['D1'].record(self._get_time() - self._init_time, np.array([data.position[0], data.position[1]]))
 
     def _getLocD2(self, data):
-        self._locations['D2'].record(self._get_time()-self._init_time, np.array([data.position[0], data.position[1]]))
+        self._locations['D2'].record(self._get_time() - self._init_time, np.array([data.position[0], data.position[1]]))
 
     def _getLocI(self, data):
-        self._locations['I'].record(self._get_time()-self._init_time, np.array([data.position[0], data.position[1]]))
+        self._locations['I'].record(self._get_time() - self._init_time, np.array([data.position[0], data.position[1]]))
 
     def _init_locs_plot(self):
         fig, ax = plt.subplots(tight_layout=True)
@@ -73,11 +74,11 @@ class GameRecorder(object):
         xD2 = np.asarray(self._locations['D2'].data)
         xI = np.asarray(self._locations['I'].data)
 
-        if len(xD1)>10 and len(xD2)>10 and len(xI)>10:
+        if len(xD1) > 10 and len(xD2) > 10 and len(xI) > 10:
             self._locs_plot['axs'].clear()
-            self._locs_plot['axs'].plot(xD1[10:,0], xD1[10:,1], 'b')
-            self._locs_plot['axs'].plot(xD2[10:,0], xD2[10:,1], 'g')
-            self._locs_plot['axs'].plot(xI[10:,0], xI[10:,1], 'r')
+            self._locs_plot['axs'].plot(xD1[10:, 0], xD1[10:, 1], 'b')
+            self._locs_plot['axs'].plot(xD2[10:, 0], xD2[10:, 1], 'g')
+            self._locs_plot['axs'].plot(xI[10:, 0], xI[10:, 1], 'r')
             self._locs_plot['fig'].canvas.draw()
             self._locs_plot['axs'].grid()
             if int(len(xI)) % self._save_interval == 0:
