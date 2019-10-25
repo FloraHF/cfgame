@@ -39,7 +39,7 @@ class Strategy():
         self._locations = deepcopy(self._init_locations)
 
         self._goal_msg = PoseStamped()
-        self.updateGoal(goal=self._init_locations[self._id], init=True)
+        self._updateGoal(goal=self._init_locations[self._id], init=True)
 
         self._sub_callback_dict = {'D1': self._getLocD1, 'D2': self._getLocD2, 'I': self._getLocI}
         self._subs = dict()
@@ -48,6 +48,7 @@ class Strategy():
         
         self._goal_pub = rospy.Publisher('goal', PoseStamped, queue_size=1)
         self._cmdV_pub = rospy.Publisher('cmdV', Twist, queue_size=1)
+        self._goal_pub.publish(self._goal_msg)
 
         # srv_name = '/'+player_dict[self._id]+'/cftakeoff'
         # rospy.wait_for_service(srv_name)
@@ -83,7 +84,7 @@ class Strategy():
         print('captured:', cap, d1, d2)
         return cap
 
-    def updateGoal(self, goal=None, init=False):
+    def _updateGoal(self, goal=None, init=False):
 
         if init:
             self._goal_msg.header.seq = 0
@@ -121,6 +122,36 @@ class Strategy():
             psi = atan2(spsi, cpsi)
             return psi + atan2(-bases[1][1], -bases[1][0])
 
+
+    def _h_strategy(self, x):
+
+        s = phy_to_xyz(x)
+        x_ = {'D1': np.array([0, -s[2]]), 
+              'D2': np.array([0, s[2]]), 
+              'I': np.array([s[0], s[1]])}
+
+        Delta = sqrt(np.maximum(s[0]**2 - (1 - 1/self._a**2)*(s[0]**2 + s[1]**2 - (s[2]/self._a)**2), 0)) 
+        if (s[0] + Delta)/(1 - 1/self._a**2) - s[0] > 0:
+            xP = (s[0] + Delta)/(1 - 1/self._a**2)
+        else:
+            xP = - (s[0] + Delta)/(1 - 1/self._a**2)
+
+        P = np.array([xP, 0 , 0])
+        D1_P = P - np.concatenate((x_['D1'], [0]))
+        D2_P = P - np.concatenate((x_['D2'], [0]))
+        I_P  = P - np.concatenate((x_['I'], [0]))
+        D1_I, D2_I, D1_D2 = get_vecs(x_)
+
+        if self._id == 'D1':
+            phi_1 = atan2(np.cross(D1_I, D1_P)[-1], np.dot(D1_I, D1_P))
+            return phi_1 + atan2(D1_I[1], D1_I[0])
+        elif self._id == 'D2':
+            phi_2 = atan2(np.cross(D2_I, D2_P)[-1], np.dot(D2_I, D2_P))
+            return phi_2 + atan2(D2_I[1], D2_I[0])
+        elif self._id == 'I':
+            psi = atan2(np.cross(-D2_I, I_P)[-1], np.dot(-D2_I, I_P))
+            return psi + atan2(-D2_I[1], -D2_I[0])
+
     def _i_strategy(self, x):
         s = phy_to_thtalpha(x)
         ds, bases = phy_to_thtd(x)
@@ -143,34 +174,28 @@ class Strategy():
             psi = -(pi / 2 - self._LB / 2 + s[1])
             return psi + atan2(-bases[1][1], -bases[1][0])
 
-    def hover(self):
-        # self._sendCmd(1)
-        while not rospy.is_shutdown():
-            self.updateGoal(goal=self._init_locations[self._id])
-            self._goal_pub.publish(self._goal_msg)
-            self._rate.sleep()
-            # print(self._id, self._init_locations[self._id])
+    def _m_strategy(self, x):
 
-    # def waypoints(self, wps=[np.array([1., 1.])], ts=[3.], z=0.5, v=0.5):
-    #
-    #     start_t = rospy.Time.now()
-    #     k, km = 0, len(ts)
+        s = phy_to_xyz(x)
+        if s[0]<-0.1:
+            return h_strategy(x)
+        else:
+            return i_strategy(x)
+
+    # def hover(self):
+    #     # self._sendCmd(1)
     #     while not rospy.is_shutdown():
-    #         if (rospy.Time.now() - start_t > ts[k]):
-    #             k = max(k+1, km-1)
-    #         goal = np.concatenate(wp[k], np.array([z]))
-    #         self.updateGoal(goal=goal)
+    #         self._updateGoal(goal=self._init_locations[self._id])
     #         self._goal_pub.publish(self._goal_msg)
     #         self._rate.sleep()
-    #
-    def game(self, policy=_i_strategy):
+
+    def game(self, policy=_z_strategy):
 
         _t = self._get_time()
         _cap = False
         end = False
         time_inrange = 0
         time_end = 0
-        last_location = deepcopy(self._locations[self._id])
         while not rospy.is_shutdown():
             t = self._get_time()
             dt = t - _t 
@@ -185,9 +210,7 @@ class Strategy():
                     _cap = cap 
                 if time_inrange >= self._cap_time:
                     end = True
-                    last_location[0] = self._locations[self._id][0]
-                    last_location[1] = self._locations[self._id][1]
-                    self.updateGoal(last_location)
+                    self._updateGoal(self._locations[self._id])
                     self._goal_pub.publish(self._goal_msg)
                     self._auto()
                     continue
@@ -198,8 +221,8 @@ class Strategy():
                 cmdV.linear.x = vx
                 cmdV.linear.y = vy
                 self._cmdV_pub.publish(cmdV)
-                self.updateGoal()
-                self._goal_pub.publish(self._goal_msg)                    
+                # self._updateGoal()
+                # self._goal_pub.publish(self._goal_msg)                    
             else:
                 if self._id == 'I':
                     self._land()
