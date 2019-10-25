@@ -11,7 +11,7 @@
   <arg name="cf_frame" default="/cf" />
 
     <!-- add outer-loop controller, hover only for now -->
-    <node name="data_recorder" pkg="crazyflie_game" type="plotter.py" output="screen">
+    <node name="data_recorder" pkg="crazyflie_game" type="player_recorder.py" output="screen">
         <param name="goal_topic" value="$(arg goal_topic)" />
         <param name="mcap_topic" value="$(arg mcap_topic)" />
         <param name="cmdV_topic" value="$(arg cmdV_topic)" />

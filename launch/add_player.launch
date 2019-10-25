@@ -36,10 +36,10 @@
       <arg name="z" value="$(arg z)"/>
     </include>
     
-    <!-- add plotter -->
-    <!-- <include file="$(find crazyflie_game)/launch/player_recorder.launch">
+    <!-- add data recorder for each player -->
+    <include file="$(find crazyflie_game)/launch/player_recorder.launch">
       <arg name="cf_frame" value="/$(arg frame)" />
-    </include> -->
+    </include>
   </group>
 
 </launch>

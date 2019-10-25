@@ -11,7 +11,7 @@ from geometry_msgs.msg import PoseStamped, Twist
 from crazyflie_game.msg import Mocap
 from plotter import DataRecorder
 
-class GamePlotter(object):
+class GameRecorder(object):
 
     def __init__(self, D1='cf4', D2='cf5', I='cf3',
                  max_size=1e4,
@@ -90,6 +90,6 @@ if __name__ == '__main__':
     D1 = rospy.get_param("~D1", 'cf4')
     D2 = rospy.get_param("~D2", 'cf5')
     I = rospy.get_param("~I", 'cf3')
-    plotter = GamePlotter(D1=D1, D2=D2, I=I)
+    recorder = GameRecorder(D1=D1, D2=D2, I=I)
     while not rospy.is_shutdown():
-        plotter.plot_locs()
+        recorder.plot_locs()
