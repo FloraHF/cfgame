@@ -5,6 +5,8 @@ import tf
 import numpy as np
 from copy import deepcopy
 from math import sin, cos, sqrt, atan2, acos, pi
+
+from std_srv import Empty
 from geometry_msgs.msg import PoseStamped, Twist
 from optitrack_broadcast.msg import Mocap
 
@@ -19,32 +21,51 @@ class Strategy():
 
         self._worldFrame = worldFrame
         self._frame = frame
+        self._player_dict = player_dict
         self._rate = rospy.Rate(rate)
+
         self._id = player_id
         self._v = velocity
         self._z = z
         self._r = r
+        self._cap_time = 2.
         a = a.split('/')
         self._a = float(a[0])/float(a[1])
-        # print(float(a.split('/')[0]))
         self._LB = acos(self._a)
-        self._player_dict = player_dict
 
         self._init_locations = {'D1': np.array([-.6, -0.1]),
                            'D2': np.array([.6, -0.1]),
                            'I': np.array([0., .0])}
-        print(self._init_locations['D1'])
         self._locations = deepcopy(self._init_locations)
+
         self._goal_msg = PoseStamped()
         self.updateGoal(goal=self._init_locations[self._id], init=True)
+
         self._sub_callback_dict = {'D1': self._getLocD1, 'D2': self._getLocD2, 'I': self._getLocI}
         self._subs = dict()
         for p_id, cf_frame in player_dict.items():
             self._subs.update({p_id: rospy.Subscriber('/' + cf_frame + '/mocap', Mocap, self._sub_callback_dict[p_id])})
-
+        
         self._goal_pub = rospy.Publisher('goal', PoseStamped, queue_size=1)
         self._cmdV_pub = rospy.Publisher('cmdV', Twist, queue_size=1)
 
+        # srv_name = '/'+player_dict[self._id]+'/cftakeoff'
+        # rospy.wait_for_service(srv_name)
+        # rospy.loginfo('found' + srv_name + 'service')
+        # self._takeoff = rospy.ServiceProxy(srv_name, Empty)
+        srv_name = '/'+player_dict[self._id]+'/cfauto'
+        rospy.wait_for_service(srv_name)
+        rospy.loginfo('found' + srv_name + 'service')
+        self._auto = rospy.ServiceProxy(srv_name, Empty)
+
+        srv_name = '/'+player_dict[self._id]+'/cfland'
+        rospy.wait_for_service(srv_name)
+        rospy.loginfo('found' + srv_name + 'service')
+        self._land = rospy.ServiceProxy(srv_name, Empty)
+
+    def _get_time(self):
+        t = rospy.Time.now()
+        return t.secs + t.nsecs * 1e-9
 
     def _getLocD1(self, data):
         self._locations['D1'] = np.array([data.position[0], data.position[1]])
@@ -86,9 +107,6 @@ class Strategy():
         self._goal_msg.pose.orientation.y = quaternion[1]
         self._goal_msg.pose.orientation.z = quaternion[2]
         self._goal_msg.pose.orientation.w = quaternion[3]
-
-        if self._is_capture() and self._id == 'I':
-            self._goal_msg.pose.position.z = 0.0
 
     def _z_strategy(self, x):
 
@@ -147,18 +165,44 @@ class Strategy():
     #
     def game(self, policy=_i_strategy):
 
+        _t = self._get_time()
+        _cap = False
+        end = False
+        time_inrange = 0
+        time_end = 0
+        last_location = deepcopy(self._locations[self._id])
         while not rospy.is_shutdown():
-            heading = policy(self, self._locations)
-            vx = self._v * cos(heading)
-            vy = self._v * sin(heading)
-            cmdV = Twist()
-            cmdV.linear.x = vx
-            cmdV.linear.y = vy
-            self._cmdV_pub.publish(cmdV)
-            # print([self._goal[2]])
-            # print(self._locations[self._id])
-            self.updateGoal()
-            self._goal_pub.publish(self._goal_msg)
+            t = self._get_time()
+            dt = t - _t 
+            _t = t
+            if not end:
+                if self._is_capture():
+                    cap = True
+                    if _cap:
+                        time_inrange += dt 
+                    else:
+                        time_inrange = 0
+                    _cap = cap 
+                if time_inrange >= self._cap_time:
+                    end = True
+                    last_location[0] = self._locations[self._id][0]
+                    last_location[1] = self._locations[self._id][1]
+                    self.updateGoal(last_location)
+                    self._goal_pub.publish(self._goal_msg)
+                    self._auto()
+                    continue
+                heading = policy(self, self._locations)
+                vx = self._v * cos(heading)
+                vy = self._v * sin(heading)
+                cmdV = Twist()
+                cmdV.linear.x = vx
+                cmdV.linear.y = vy
+                self._cmdV_pub.publish(cmdV)
+                self.updateGoal()
+                self._goal_pub.publish(self._goal_msg)                    
+            else:
+                if self._id == 'I':
+                    self._land()
 
             self._rate.sleep()
 
