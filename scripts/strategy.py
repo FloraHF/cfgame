@@ -242,10 +242,6 @@ class Strategy():
         tht = self._get_theta()
         d1, d2, a1, a2 = self._get_alpha()
         a = self._get_a()
-        if x <-0.1:
-            p = h_strategy(x, y, z, a)
-        else:
-            p = i_strategy(d1, d2, a1, a2, tht, a)
 
         close = r*1.3
         if np.linalg.norm(self._vecs['D1_I']) < close and np.linalg.norm(self._vecs['D2_I']) < close: # in both range
@@ -258,15 +254,28 @@ class Strategy():
         elif np.linalg.norm(self._vecs['D1_I']) < close: # in D1's range
             print('close')
             if self._id == 'D1':
-                p = 0.96*self._p
+                p = 0.96*self._p 
                 self._p = p
-            elif self._id == 'D2':
-                pass
+                p = p
+            # elif self._id == 'D2':
+            #     pass
             elif self._id == 'I':
                 vD1 = concatenate(self._velocities['D1'],[0])
                 phi_1 = atan2(np.cross(self._vecs['D1_I'], vD1)[-1], np.dot(self._vecs['D1_I'], vD1))
                 psi = acos(np.linalg.norm(vD1)*cos(phi_1)/vi)
-                p = pi - tht + -abs(psi)
+                p = pi - tht - abs(psi)
+        else:
+            if x <-0.1:
+                p = h_strategy(x, y, z, a)
+            else:
+                p = i_strategy(d1, d2, a1, a2, tht, a)
+
+        if self._id == 'D1':
+            p += atan2(self._vecs['D1_I'][0], self._vecs['D1_I'][1])
+        elif self._id == 'D2':
+            p += atan2(self._vecs['D2_I'][0], self._vecs['D2_I'][1])
+        elif self._id == 'I':
+            p += atan2(-self._vecs['D2_I'][0], -self._vecs['D2_I'][1])
         return p
 
     def hover(self):
@@ -301,7 +310,7 @@ class Strategy():
             self._rate.sleep()
 
 
-    def game(self, policy=_z_strategy):
+    def game(self, policy=_m_strategy):
 
         _t = self._get_time()
         _cap = False
@@ -326,7 +335,7 @@ class Strategy():
                     self._goal_pub.publish(self._goal_msg)
                     self._auto()
                     continue
-                heading = policy(self, self._locations)
+                heading = policy(self)
                 vx = self._v * cos(heading)
                 vy = self._v * sin(heading)
                 cmdV = Twist()
