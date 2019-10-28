@@ -12,7 +12,7 @@
   <arg name="world_frame" default="/world" />
   <arg name="server" default="192.168.2.230" />
   <arg name="port" default="3883" />
-  <arg name="r" default=".4"/>
+  <arg name="r" default=".25"/>
 
   <arg name="uri_D1" default="radio://0/88/1M/E7E7E7E704" />
   <arg name="frame_D1" default="cf4" />
