@@ -12,7 +12,7 @@
   <arg name="z" default=".5"/>
 
     <!-- add outer-loop controller, hover only for now -->
-  <node name="game_controller" pkg="crazyflie_game" type="controller.py" output="screen">
+  <node name="strategy" pkg="crazyflie_game" type="strategy.py" output="screen">
       <param name="worldFrame" value="$(arg world_frame)" />
       <param name="frame" value="$(arg cf_frame)" />
       <param name="player_id" value="$(arg player_id)"/>
