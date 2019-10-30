@@ -29,7 +29,7 @@
   <arg name="frame_I" default="cf3" />
   <arg name="id_I" default="I"/>
   <arg name="v_I" default=".15"/>
-  <arg name="z_I" default=".6"/>
+  <arg name="z_I" default=".4"/>
 
   <arg name="a" default="$(arg v_D)/$(arg v_I)"/>
   

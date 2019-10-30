@@ -2,7 +2,7 @@
 
 import os
 import numpy as np
-from math import atan2, asin
+from math import pi, cos, sin
 import rospy
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -74,13 +74,26 @@ class GameRecorder(object):
         xD2 = np.asarray(self._locations['D2'].data)
         xI = np.asarray(self._locations['I'].data)
 
-        if len(xD1) > 10 and len(xD2) > 10 and len(xI) > 10:
+        def get_cap_ring(xd):
+            rs = []
+            for tht in np.linspace(0, 6.28, 50):
+                x = xd[0] + .25*cos(tht)
+                y = xd[0] + .25*sin(tht)
+                rs.append((np.array([x, y])))
+            return np.asarray(rs)
+
+        if len(xD1) > 100 and len(xD2) > 100 and len(xI) > 100:
             self._locs_plot['axs'].clear()
-            self._locs_plot['axs'].plot(xD1[10:, 0], xD1[10:, 1], 'b')
-            self._locs_plot['axs'].plot(xD2[10:, 0], xD2[10:, 1], 'g')
-            self._locs_plot['axs'].plot(xI[10:, 0], xI[10:, 1], 'r')
+            self._locs_plot['axs'].plot(xD1[100:-1, 0], xD1[100:-1, 1], 'b')
+            self._locs_plot['axs'].plot(xD2[100:-1, 0], xD2[100:-1, 1], 'g')
+            self._locs_plot['axs'].plot(xI[100:-1, 0], xI[100:-1, 1], 'r')
+            ring1 = get_cap_ring(xD1[-1, :])
+            ring2 = get_cap_ring(xD2[-1, :])
+            self._locs_plot['axs'].plot(ring1[:, 0], ring1[:, 1], 'b')
+            self._locs_plot['axs'].plot(ring2[:, 0], ring2[:, 1], 'g')
             self._locs_plot['fig'].canvas.draw()
             self._locs_plot['axs'].grid()
+            self._locs_plot['axs'].axis('equal')
             if int(len(xI)) % self._save_interval == 0:
                 self._locs_plot['fig'].savefig(self._results_dir + 'traj.png')
 
