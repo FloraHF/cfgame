@@ -27,7 +27,7 @@ class Strategy():
         self._v = velocity
         self._z = z
         self._r = r
-        self._cap_time = 2.
+        self._cap_time = .5
         # a = a.split('/')
         # self._a = float(a[0]) / float(a[1])
         # self._LB = acos(self._a)
@@ -256,7 +256,7 @@ class Strategy():
                 p = -tht / 2
         elif np.linalg.norm(self._vecs['D1_I']) < close:  # in D1's range
             # print(self._locations['D1'], self._locations['I'], self._vecs['D1_I'])
-            print('close')
+            # print('close')
             if self._id == 'D1':
                 p = 0.96 * self._p
             elif self._id == 'D2':
@@ -299,6 +299,14 @@ class Strategy():
                np.array([-.5, -.5]),
                np.array([.5, -.5]),
                np.array([.5, .5]),
+               np.array([-.5, .5]),
+               np.array([-.5, -.5]),
+               np.array([.5, -.5]),
+               np.array([.5, .5]),
+               np.array([-.5, .5]),
+               np.array([-.5, -.5]),
+               np.array([.5, -.5]),
+               np.array([.5, .5]),
                np.array([-.5, .5])]
         step = 3
         temp = 0
@@ -311,7 +319,7 @@ class Strategy():
                 temp += dt
             else:
                 temp = 0
-                pt_id = min(pt_id + 1, 4)
+                pt_id = min(pt_id + 1, 12)
             self._updateGoal(goal=pts[pt_id])
             # print(pts[pt_id])
             self._goal_pub.publish(self._goal_msg)
@@ -336,6 +344,7 @@ class Strategy():
                     else:
                         time_inrange = 0
                     _cap = cap
+                    print(time_inrange)
                 if time_inrange >= self._cap_time:
                     end = True
                     self._updateGoal(self._locations[self._id])
@@ -378,4 +387,4 @@ if __name__ == '__main__':
     # if strategy._id =='D1':
     #     print('takeoff')
     #     strategy.takeoff()
-    strategy.game()
+    strategy.waypoints()
