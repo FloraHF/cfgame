@@ -387,4 +387,4 @@ if __name__ == '__main__':
     # if strategy._id =='D1':
     #     print('takeoff')
     #     strategy.takeoff()
-    strategy.waypoints()
+    strategy.game()
