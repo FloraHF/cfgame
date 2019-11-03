@@ -6,7 +6,7 @@ from math import atan2, asin
 import rospy
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray, String, float32
 from geometry_msgs.msg import PoseStamped, Twist
 from crazyflie_game.msg import Mocap
 
@@ -49,14 +49,23 @@ class PlayerRecorder(object):
             os.makedirs(self._results_dir)
         if not os.path.isdir(self._data_dir):
             os.makedirs(self._data_dir)
+        self._location_dirc = os.path.join(self._data_dir, 'location.csv')
+        self._goal_dirc = os.path.join(self._data_dir, 'goal.csv')
+        self._velocity_dirc = os.path.join(self._data_dir, 'velocity.csv')
+        self._cmdVtemp_dirc = os.path.join(self._data_dir, 'cmdVtemp.csv')
+        self._euler_dirc = os.path.join(self._data_dir, 'euler.csv')
+        self._cmd_vel_dirc = os.path.join(self._data_dir, 'cmd_vel.csv')
+        self._a_dirc = os.path.join(self._data_dir, 'a.csv')
+        self._policy_dirc = os.path.join(self._data_dir, 'policy.csv')
 
         self._locs = DataRecorder(max_size=max_size)
         self._goals = DataRecorder(max_size=max_size)
         self._cmdVs = DataRecorder(max_size=max_size)
         self._vels = DataRecorder(max_size=max_size)
         self._eulers = DataRecorder(max_size=max_size)
-
         self._cmd_vels = DataRecorder(max_size=max_size)
+        self._as = DataRecorder(max_size=max_size)
+        self._policies = DataRecorder(max_size=max_size)
 
         self.rate = rospy.Rate(rate)
         self._goal_sub = rospy.Subscriber(goal, PoseStamped, self._update_goal)
@@ -64,9 +73,11 @@ class PlayerRecorder(object):
         # self._cmdV_sub = rospy.Subscriber(cmdV, Float32MultiArray, self._update_cmdV)
         self._cmdVtemp_sub = rospy.Subscriber(Vtemp, Twist, self._update_cmdVtemp)
         self._cmd_vel_sub = rospy.Subscriber(cmd_vel, Twist, self._update_cmd_vel)
-        print(mocap)
-        print(goal)
-        print(cmd_vel)
+        self._policy_sub = rospy.Subscriber(policy, String, self._update_policy)
+        self._a_sub = rospy.Subscriber(a, float32, self._update_a)
+        # print(mocap)
+        # print(goal)
+        # print(cmd_vel)
 
         # self._locs_plot = self._init_locs_plot()
         # self._euler_plot = self._init_euler_plot()
@@ -139,23 +150,32 @@ class PlayerRecorder(object):
         plt.show(block=False)
         return {'fig': fig, 'axs': axs}
 
+    def _update_policy(self, policy):
+        t = self._get_time() - self._init_time
+        self._policies.record(t, policy)
+        with open(self._policy_dirc, 'a') as f:
+            f.write('%.3f,'%t + policy + '\n')
+
+    def _update_a(self, a):
+        t = self._get_time() - self._init_time
+        self._as.record(t, a)
+        with open(self._a_dirc, 'a') as f:
+            f.write('%.3f, %.3f\n'%(t, a))
+
     def _update_mocap(self, mocap):
         t = self._get_time() - self._init_time
         
         self._locs.record(t, mocap.position)
-        dirc = os.path.join(self._data_dir, 'location.csv')
-        with open(dirc, 'a') as f:
+        with open(self._location_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, mocap.position[0], mocap.position[1], mocap.position[2]))
 
         self._vels.record(t, mocap.velocity)
-        dirc = os.path.join(self._data_dir, 'velocity.csv')
-        with open(dirc, 'a') as f:
+        with open(self._velocity_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, mocap.velocity[0], mocap.velocity[1], mocap.velocity[2]))
 
         euler = self._qt_to_euler(mocap)
         self._eulers.record(t, euler)
-        dirc = os.path.join(self._data_dir, 'euler.csv')
-        with open(dirc, 'a') as f:
+        with open(self._euler_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, euler[0], euler[1], euler[2]))
 
     def _update_goal(self, goal):
@@ -166,8 +186,7 @@ class PlayerRecorder(object):
         t = self._get_time() - self._init_time
         self._goals.record(t, np.array([x, y, z]))
 
-        dirc = os.path.join(self._data_dir, 'goal.csv')
-        with open(dirc, 'a') as f:
+        with open(self._goal_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, x, y, z))
 
     def _update_cmd_vel(self, cmd):
@@ -177,8 +196,7 @@ class PlayerRecorder(object):
         t = self._get_time() - self._init_time
         self._cmd_vels.record(t, np.array([x, y, z]))
 
-        dirc = os.path.join(self._data_dir, 'cmd_vel.csv')
-        with open(dirc, 'a') as f:
+        with open(self._cmd_vel_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, x, y, z))
 
     def _update_cmdVtemp(self, cmdVtemp):
@@ -188,8 +206,7 @@ class PlayerRecorder(object):
         t = self._get_time() - self._init_time
 
         self._cmdVs.record(t, np.array([x, y, z]))
-        dirc = os.path.join(self._data_dir, 'cmdVtemp.csv')
-        with open(dirc, 'a') as f:
+        with open(self._cmdVtemp_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, x, y, z))
 
     # def _update_cmdV(self, cmdV):

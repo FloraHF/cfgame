@@ -7,6 +7,7 @@ from copy import deepcopy
 from math import sin, cos, sqrt, atan2, asin, acos, pi
 
 from std_srvs.srv import Empty
+from std_msgs.msg import String, float32
 from geometry_msgs.msg import PoseStamped, Twist
 from optitrack_broadcast.msg import Mocap
 
@@ -54,6 +55,8 @@ class Strategy():
 
         self._goal_pub = rospy.Publisher('goal', PoseStamped, queue_size=1)
         self._cmdV_pub = rospy.Publisher('cmdV', Twist, queue_size=1)
+        self._policy_pub = rospy.Publisher('policy', String, queue_size=1)
+        self._a_pub = rospy.Publisher('a', float32, queue_size=1)
 
         # print(self._goal_msg.pose.position.x, self._goal_msg.pose.position.y)
 
@@ -82,9 +85,11 @@ class Strategy():
             vd2 = np.array(self._vel_norm['D2']).mean()
             vi = np.array(self._vel_norm['I']).mean()
             # print((vd1 + vd2)/(2 * vi))
-            return min((vd1 + vd2)/(2 * vi), 0.99)
+            a = min((vd1 + vd2)/(2 * vi), 0.99)
         else:
-            return 0.8
+            a = 0.8
+        self._a_pub.publish(a)
+        return a
 
     def _getD1(self, data):
         self._locations['D1'] = np.array([data.position[0], data.position[1]])
@@ -248,6 +253,7 @@ class Strategy():
 
         close = self._r * 1.3
         if np.linalg.norm(self._vecs['D1_I']) < close and np.linalg.norm(self._vecs['D2_I']) < close:  # in both range
+            self._policy_pub.publish('both close')
             if self._id == 'D1':
                 p = 0
             elif self._id == 'D2':
@@ -255,8 +261,7 @@ class Strategy():
             elif self._id == 'I':
                 p = -tht / 2
         elif np.linalg.norm(self._vecs['D1_I']) < close:  # in D1's range
-            # print(self._locations['D1'], self._locations['I'], self._vecs['D1_I'])
-            # print('close')
+            self._policy_pub.publish('D1 close')
             if self._id == 'D1':
                 p = 0.96 * self._p
             elif self._id == 'D2':
@@ -272,8 +277,10 @@ class Strategy():
                 p = pi - tht + psi
         else:
             if x < -0.1:
+                self._policy_pub.publish('h_strategy')
                 p = self._h_strategy(x, y, z, a)
             else:
+                self._policy_pub.publish('i_strategy')
                 p = self._i_strategy(d1, d2, a1, a2, tht, a)
 
         self._p = p

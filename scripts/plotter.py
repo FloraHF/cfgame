@@ -1,14 +1,15 @@
 import os
 import numpy as np
+from math import pi, sin, cos
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 script_dir = os.path.dirname(__file__)
 
 
-def plot_data(cf_id, files=['location.csv', 'goal.csv'], labels=['x(m)', 'y(m)', 'z(m)']):
-    data_dir = os.path.join(script_dir, 'Results/' + cf_id + '/data/')
-    fig_dir = os.path.join(script_dir, 'Results/' + cf_id + '/fig/')
+def plot_data(cf_id, files=['location.csv', 'goal.csv'], labels=['x(m)', 'y(m)', 'z(m)'], res_dir='res1/Results/'):
+    data_dir = os.path.join(script_dir, res_dir + cf_id + '/data/')
+    fig_dir = os.path.join(script_dir, res_dir + cf_id + '/fig/')
     if not os.path.isdir(fig_dir):
         os.makedirs(fig_dir)
 
@@ -49,21 +50,46 @@ def plot_data(cf_id, files=['location.csv', 'goal.csv'], labels=['x(m)', 'y(m)',
     fig.savefig(fig_dir + files[0].split('.')[0] + '.png')
 
 
-def plot_traj(cfs=['cf4', 'cf5', 'cf3']):
-    data_dirs = [os.path.join(script_dir, 'Results/' + cf + '/data/') for cf in cfs]
-    fig_dir = os.path.join(script_dir, 'Results/')
+def plot_traj(cfs=['cf4', 'cf5', 'cf3'], res_dir='res1/Results/'):
 
+    def cap_ring(xd, r=0.25):
+        rs = []
+        for tht in np.linspace(0, 2*pi, 50):
+            x = xd[0] + r*cos(tht)
+            y = xd[1] + r*sin(tht)
+            rs.append((np.array([x, y])))
+        return np.asarray(rs)
+
+    data_dirs = [os.path.join(script_dir, res_dir + cf + '/data/') for cf in cfs]
+    fig_dir = os.path.join(script_dir, res_dir)
+    xs = [[], [], []]
+    ys = [[], [], []]
     fig, ax = plt.subplots()
     colors = ['g', 'b', 'r']
-    for data_dir, color in zip(data_dirs, colors):
+    for data_dir, color, x, y in zip(data_dirs, colors, xs, ys):
         with open(data_dir + 'location.csv') as f:
             data = f.readlines()
-            x, y = [], []
             for line in data:
                 datastr = line.split(',')
                 x.append(float(datastr[1]))
                 y.append(float(datastr[2]))
         ax.plot(x, y, color)
+
+    i_start, i_end = 2000, len(xs[0])-500
+    for i in range(2000, i_end):
+        if i%150 == 0:
+            ax.plot([xs[0][i], xs[2][i]], [ys[0][i], ys[2][i]], 'b--')
+            ax.plot([xs[1][i], xs[2][i]], [ys[1][i], ys[2][i]], 'b--')
+            ring_1 = cap_ring([xs[0][i], ys[0][i]])
+            ring_2 = cap_ring([xs[1][i], ys[1][i]])
+            ax.plot(ring_1[:,0], ring_1[:,1], 'g')
+            ax.plot(ring_2[:,0], ring_2[:,1], 'b')
+        # if i == i_end-1:
+        #     ring_1 = cap_ring([xs[0][i], ys[0][i]])
+        #     ring_2 = cap_ring([xs[1][i], ys[1][i]])
+        #     ax.plot(ring_1[:,0], ring_1[:,1], 'g')
+        #     ax.plot(ring_2[:,0], ring_2[:,1], 'b')
+
     ax.set_xlabel('x(m)')
     ax.set_ylabel('y(m)')
     ax.axis('equal')
@@ -71,7 +97,19 @@ def plot_traj(cfs=['cf4', 'cf5', 'cf3']):
 
     fig.savefig(fig_dir + 'traj.png')
 
-plot_data('cf5', files=['location.csv', 'goal.csv'], labels=['x(m)', 'y(m)', 'z(m)'])
-plot_data('cf5', files=['velocity.csv', 'cmdVtemp.csv'], labels=['vz(m/s)', 'vy(m/s)', 'vz(m/s)'])
-plot_data('cf5', files=['euler.csv', 'cmd_vel.csv'], labels=['roll(/s)', 'pitch(/s)', 'yaw(/s)', 'thrust(PWM)'])
-# plot_traj(cfs=['cf4', 'cf5', 'cf3'])
+cfs = ['cf4', 'cf5', 'cf3']
+res = 'res4/Results/'
+for cf in cfs:
+    plot_data(cf, files=['location.csv', 'goal.csv'], 
+                labels=['x(m)', 'y(m)', 'z(m)'], 
+                res_dir=res)
+
+    plot_data(cf, files=['velocity.csv', 'cmdVtemp.csv'], 
+                labels=['vz(m/s)', 'vy(m/s)', 'vz(m/s)'], 
+                res_dir=res)
+
+    plot_data(cf, files=['euler.csv', 'cmd_vel.csv'], 
+                labels=['roll(/s)', 'pitch(/s)', 'yaw(/s)', 'thrust(PWM)'], 
+                res_dir=res)
+    
+plot_traj(cfs=cfs, res_dir=res)
