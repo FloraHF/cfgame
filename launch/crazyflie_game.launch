@@ -85,5 +85,11 @@
       <param name="I" value="$(arg frame_I)" />
   </node>
 
+  <node name="game_controller" pkg="crazyflie_game" type="game_controller.py" output="screen">
+      <param name="D1" value="$(arg frame_D1)"/>
+      <param name="D2" value="$(arg frame_D2)" />
+      <param name="I" value="$(arg frame_I)" />
+  </node>
+
 
 </launch>

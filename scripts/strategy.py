@@ -23,6 +23,7 @@ class Strategy():
         self._frame = frame
         self._player_dict = player_dict
         self._rate = rospy.Rate(rate)
+        self._state = None
 
         self._id = player_id
         self._v = velocity
@@ -43,7 +44,15 @@ class Strategy():
         self._vecs = {'D1_I': np.concatenate((self._locations['I'] - self._locations['D1'], [0])),
                       'D2_I': np.concatenate((self._locations['I'] - self._locations['D2'], [0])),
                       'D1_D2': np.concatenate((self._locations['D2'] - self._locations['D1'], [0]))}
+
         self._p = None
+        self._last_cap = False
+        self._end = False
+        self._time_inrange = 0.
+        self._time_end = 0.
+
+        self._wpts_time = 0.
+        self._wpts_segt = 3.
 
         self._goal_msg = PoseStamped()
         self._updateGoal(goal=self._init_locations[self._id], init=True)
@@ -58,22 +67,35 @@ class Strategy():
         self._policy_pub = rospy.Publisher('policy', String, queue_size=1)
         self._a_pub = rospy.Publisher('a', float32, queue_size=1)
 
-        # print(self._goal_msg.pose.position.x, self._goal_msg.pose.position.y)
+        rospy.Service('/set_takeoff', Empty, self._set_takeoff)
+        rospy.Service('/set_play', Empty, self._set_play)
+        rospy.Service('/set_land', Empty, self._set_land)
 
-        srv_name = '/' + player_dict[self._id] + '/cftakeoff'
+        self._takeoff = self._service_client('/cftakeoff')
+        self._auto = self._service_client('/cfauto')
+        self._land = self._service_client('/cfland')
+        self._play = self._service_client('/cfplay')
+
+    def _service_client(self, name):
+        srv_name = '/' + self._player_dict[self._id] + name
         rospy.wait_for_service(srv_name)
         rospy.loginfo('found' + srv_name + 'service')
-        self._takeoff = rospy.ServiceProxy(srv_name, Empty)
+        return rospy.ServiceProxy(srv_name, Empty)
 
-        srv_name = '/' + player_dict[self._id] + '/cfauto'
-        rospy.wait_for_service(srv_name)
-        rospy.loginfo('found' + srv_name + 'service')
-        self._auto = rospy.ServiceProxy(srv_name, Empty)
+    def _set_takeoff(self):
+        self._state = 'hover'
+        rospy.sleep(.11)
+        self._takeoff()
+        return Empty()
 
-        srv_name = '/' + player_dict[self._id] + '/cfland'
-        rospy.wait_for_service(srv_name)
-        rospy.loginfo('found' + srv_name + 'service')
-        self._land = rospy.ServiceProxy(srv_name, Empty)
+    def _set_play(self):
+        self._state = 'play'
+        self._play()
+        return Empty()
+
+    def _set_land(self):
+        self._land()
+        return Empty()
 
     def _get_time(self):
         t = rospy.Time.now()
@@ -293,15 +315,11 @@ class Strategy():
             p = p + atan2(-self._vecs['D2_I'][0], -self._vecs['D2_I'][1])
         return p
 
-    def hover(self):
-        while not rospy.is_shutdown():
-            self._updateGoal(goal=self._init_locations[self._id])
-            self._goal_pub.publish(self._goal_msg)
-            self._rate.sleep()
+    def _hover(self):
+        self._updateGoal(goal=self._init_locations[self._id])
+        self._goal_pub.publish(self._goal_msg)
 
-    def waypoints(self):
-        rospy.sleep(10)
-        _t = self._get_time()
+    def _set_waypoints(self):
         pts = [np.array([-.5, .5]),
                np.array([-.5, -.5]),
                np.array([.5, -.5]),
@@ -315,65 +333,94 @@ class Strategy():
                np.array([.5, -.5]),
                np.array([.5, .5]),
                np.array([-.5, .5])]
-        step = 3
-        temp = 0
-        pt_id = 0
-        while not rospy.is_shutdown():
-            t = self._get_time()
-            dt = t - _t
-            _t = t
-            if temp < step:
-                temp += dt
-            else:
-                temp = 0
-                pt_id = min(pt_id + 1, 12)
-            self._updateGoal(goal=pts[pt_id])
-            # print(pts[pt_id])
+        return pts
+
+    def _waypoints(self, dt, pts):
+        # rospy.sleep(10)
+        # _t = self._get_time()
+        # pts = [np.array([-.5, .5]),
+        #        np.array([-.5, -.5]),
+        #        np.array([.5, -.5]),
+        #        np.array([.5, .5]),
+        #        np.array([-.5, .5]),
+        #        np.array([-.5, -.5]),
+        #        np.array([.5, -.5]),
+        #        np.array([.5, .5]),
+        #        np.array([-.5, .5]),
+        #        np.array([-.5, -.5]),
+        #        np.array([.5, -.5]),
+        #        np.array([.5, .5]),
+        #        np.array([-.5, .5])]
+        # step = 3
+        # temp = 0
+        # pt_id = 0
+        # while not rospy.is_shutdown():
+            # t = self._get_time()
+            # dt = t - _t
+            # _t = t
+        if self._wpts_time < self._wpts_segt:
+            self._wpts_time += dt
+        else:
+            self._wpts_time = 0
+            pt_id = min(pt_id + 1, 12)
+        self._updateGoal(goal=pts[pt_id])
+        # print(pts[pt_id])
+        self._goal_pub.publish(self._goal_msg)
+
+    def _play(self, dt, policy=_m_strategy):
+        # _t = self._get_time()
+        # _cap = False
+        # end = False
+        # time_inrange = 0
+        # time_end = 0
+        # while not rospy.is_shutdown():
+        # t = self._get_time()
+        # dt = t - _t
+        # _t = t
+        if not self._end:
+            heading = policy(self)
+            vx = self._v * cos(heading)
+            vy = self._v * sin(heading)
+            cmdV = Twist()
+            cmdV.linear.x = vx
+            cmdV.linear.y = vy
+            self._cmdV_pub.publish(cmdV)
+            self._updateGoal(self._locations[self._id])
             self._goal_pub.publish(self._goal_msg)
-            self._rate.sleep()
+            if self._is_capture():
+                if self._last_cap:
+                    self._time_inrange += dt
+                else:
+                    self._time_inrange = 0
+                self._last_cap = True
+                print(self._time_inrange)
+            if self._time_inrange >= self._cap_time:
+                self._end = True
+                # self._updateGoal(self._locations[self._id])
+                # self._goal_pub.publish(self._goal_msg)
+                self._auto()
+        else:
+            self._goal_pub.publish(self._goal_msg)
+            if self._id == 'I':
+                self._land()
 
-    def game(self, policy=_m_strategy):
-        rospy.sleep(2)
-        _t = self._get_time()
-        _cap = False
-        end = False
-        time_inrange = 0
-        time_end = 0
-        while not rospy.is_shutdown():
-            t = self._get_time()
-            dt = t - _t
-            _t = t
-            if not end:
-                if self._is_capture():
-                    cap = True
-                    if _cap:
-                        time_inrange += dt
-                    else:
-                        time_inrange = 0
-                    _cap = cap
-                    print(time_inrange)
-                if time_inrange >= self._cap_time:
-                    end = True
-                    self._updateGoal(self._locations[self._id])
-                    self._goal_pub.publish(self._goal_msg)
-                    self._auto()
-                    continue
-                heading = policy(self)
-                vx = self._v * cos(heading)
-                vy = self._v * sin(heading)
-                cmdV = Twist()
-                cmdV.linear.x = vx
-                cmdV.linear.y = vy
-                self._cmdV_pub.publish(cmdV)
-                self._updateGoal()
-                self._goal_pub.publish(self._goal_msg)
-            else:
-                self._goal_pub.publish(self._goal_msg)
-                if self._id == 'I':
-                    self._land()
+            # self._rate.sleep()
 
-            self._rate.sleep()
+    def iteration(self, event):
+        if self._state == 'hover':
+            self._hover()
+        elif self._state == 'wpts':
+            wpts = self._set_waypoints()
+            self._waypoints(event.current_real - event.last_real, wpts)
+        elif self._state == 'play':
+            self._play(event.current_real - event.last_real)
+        elif self._state == 'land':
+            pass
 
+    # def run(self, frequency):
+    #     rospy.init_node('strategy', anonymous=True)
+    #     rospy.Timer(rospy.Duration(1.0/frequency), self._iteration)
+    #     rospy.spin()
 
 if __name__ == '__main__':
     rospy.init_node('strategy', anonymous=True)
@@ -381,7 +428,6 @@ if __name__ == '__main__':
     player_id = rospy.get_param("~player_id", 'D1')
     velocity = rospy.get_param("~velocity", .1)
     cap_range = rospy.get_param("~cap_range", .5)
-    # speed_ratio = rospy.get_param("~speed_ratio", .5)
     z = rospy.get_param("~z", .5)
 
     worldFrame = rospy.get_param("~worldFrame", "/world")
@@ -391,7 +437,5 @@ if __name__ == '__main__':
                         worldFrame, frame,
                         z=z, r=cap_range)
 
-    # if strategy._id =='D1':
-    #     print('takeoff')
-    #     strategy.takeoff()
-    strategy.game()
+    rospy.Timer(rospy.Duration(1.0/15), strategy.iteration)
+    rospy.spin()
