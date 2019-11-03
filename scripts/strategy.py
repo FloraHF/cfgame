@@ -251,20 +251,20 @@ class Strategy():
     def _i_strategy(self, d1, d2, a1, a2, tht, a):
         LB = acos(a)
         if self._id == 'D1':
-            phi_2 = pi / 2 - a2
+            phi_2 = pi/2 - a2
             # print(phi_2, a2)
-            psi = -(pi / 2 - LB + a2)
-            d = d2 * (sin(phi_2) / sin(LB))
-            l1 = sqrt(d1 ** 2 + d ** 2 - 2 * d1 * d * cos(tht + psi))
+            psi = -(pi/2 - LB + a2)
+            d = d2*(sin(phi_2)/sin(LB))
+            l1 = sqrt(d1**2 + d**2 - 2*d1*d*cos(tht + psi))
             # print(phi_2, d2, d, l1)
-            cA = (d ** 2 + l1 ** 2 - d1 ** 2) / (2 * d * l1)
-            sA = sin(tht + psi) * (d1 / l1)
+            cA = (d**2 + l1**2 - d1**2)/(2*d*l1)
+            sA = sin(tht + psi)*(d1/l1)
             A = atan2(sA, cA)
             return -(pi - (tht + psi) - A)
         elif self._id == 'D2':
-            return pi / 2 - a2
+            return pi/2 - a2
         elif self._id == 'I':
-            return -(pi / 2 - LB + a2)
+            return -(pi/2 - LB + a2)
 
     def _m_strategy(self):
 
@@ -298,7 +298,7 @@ class Strategy():
                     psi = - abs(phi_1)
                 p = pi - tht + psi
         else:
-            if x < -0.1:
+            if x < -0.05:
                 self._policy_pub.publish('h_strategy')
                 p = self._h_strategy(x, y, z, a)
             else:

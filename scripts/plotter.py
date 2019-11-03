@@ -64,31 +64,38 @@ def plot_traj(cfs=['cf4', 'cf5', 'cf3'], res_dir='res1/Results/'):
     fig_dir = os.path.join(script_dir, res_dir)
     xs = [[], [], []]
     ys = [[], [], []]
+    policies = [[], [], []]
     fig, ax = plt.subplots()
     colors = ['g', 'b', 'r']
-    for data_dir, color, x, y in zip(data_dirs, colors, xs, ys):
+    for data_dir, x, y in zip(data_dirs, xs, ys):
         with open(data_dir + 'location.csv') as f:
             data = f.readlines()
             for line in data:
                 datastr = line.split(',')
                 x.append(float(datastr[1]))
                 y.append(float(datastr[2]))
-        ax.plot(x, y, color)
+        # with open(data_dir + 'policy.csv') as f:
+        #     data = f.readlines()
+        #     for line in data:
+        #         p.append(line.split(',')[0])
 
-    i_start, i_end = 2000, len(xs[0])-500
-    for i in range(2000, i_end):
-        if i%150 == 0:
+    i_start, i_end = 1000, len(xs[0])-500
+    for x, y, p, color in zip(xs, ys, policies, colors):
+            ax.plot(x[i_start: i_end], y[i_start: i_end], color)
+
+    for i in range(i_start, i_end):
+        if i%80 == 0:
             ax.plot([xs[0][i], xs[2][i]], [ys[0][i], ys[2][i]], 'b--')
             ax.plot([xs[1][i], xs[2][i]], [ys[1][i], ys[2][i]], 'b--')
+            # ring_1 = cap_ring([xs[0][i], ys[0][i]])
+            # ring_2 = cap_ring([xs[1][i], ys[1][i]])
+            # ax.plot(ring_1[:,0], ring_1[:,1], 'g')
+            # ax.plot(ring_2[:,0], ring_2[:,1], 'b')
+        if i == i_end-1:
             ring_1 = cap_ring([xs[0][i], ys[0][i]])
             ring_2 = cap_ring([xs[1][i], ys[1][i]])
             ax.plot(ring_1[:,0], ring_1[:,1], 'g')
             ax.plot(ring_2[:,0], ring_2[:,1], 'b')
-        # if i == i_end-1:
-        #     ring_1 = cap_ring([xs[0][i], ys[0][i]])
-        #     ring_2 = cap_ring([xs[1][i], ys[1][i]])
-        #     ax.plot(ring_1[:,0], ring_1[:,1], 'g')
-        #     ax.plot(ring_2[:,0], ring_2[:,1], 'b')
 
     ax.set_xlabel('x(m)')
     ax.set_ylabel('y(m)')
@@ -98,7 +105,7 @@ def plot_traj(cfs=['cf4', 'cf5', 'cf3'], res_dir='res1/Results/'):
     fig.savefig(fig_dir + 'traj.png')
 
 cfs = ['cf4', 'cf5', 'cf3']
-res = 'res4/Results/'
+res = 'res3/Results/'
 for cf in cfs:
     plot_data(cf, files=['location.csv', 'goal.csv'], 
                 labels=['x(m)', 'y(m)', 'z(m)'], 
@@ -111,5 +118,5 @@ for cf in cfs:
     plot_data(cf, files=['euler.csv', 'cmd_vel.csv'], 
                 labels=['roll(/s)', 'pitch(/s)', 'yaw(/s)', 'thrust(PWM)'], 
                 res_dir=res)
-    
+
 plot_traj(cfs=cfs, res_dir=res)
