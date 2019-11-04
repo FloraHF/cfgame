@@ -6,7 +6,7 @@ from math import atan2, asin
 import rospy
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from std_msgs.msg import Float32MultiArray, String, float32
+from std_msgs.msg import Float32MultiArray, String, Float32
 from geometry_msgs.msg import PoseStamped, Twist
 from crazyflie_game.msg import Mocap
 
@@ -35,7 +35,9 @@ class PlayerRecorder(object):
                  # cmdV='/cf2/cmdV',
                  cmd_vel='cf2/cmd_vel',
                  Vtemp='/cf2/cmdVtemp',
-                 mocap="cf2/mocap",
+                 mocap="/cf2/mocap",
+                 a='/cf2/a',
+                 policy='/cf2/policy',
                  max_size=1e4,
                  rate=10):
 
@@ -74,7 +76,7 @@ class PlayerRecorder(object):
         self._cmdVtemp_sub = rospy.Subscriber(Vtemp, Twist, self._update_cmdVtemp)
         self._cmd_vel_sub = rospy.Subscriber(cmd_vel, Twist, self._update_cmd_vel)
         self._policy_sub = rospy.Subscriber(policy, String, self._update_policy)
-        self._a_sub = rospy.Subscriber(a, float32, self._update_a)
+        self._a_sub = rospy.Subscriber(a, Float32, self._update_a)
         # print(mocap)
         # print(goal)
         # print(cmd_vel)
@@ -313,7 +315,9 @@ if __name__ == '__main__':
                       # cmdV=cf_id+'/cmdV',
                       cmd_vel=cf_id+'/cmd_vel',
                       Vtemp=cf_id+'/cmdVtemp',
-                      mocap=cf_id+'/mocap')
+                      mocap=cf_id+'/mocap',
+                      a=cf_id+'/a',
+                      policy=cf_id+'/policy')
     rospy.spin()
     # L = 1000
     # while not rospy.is_shutdown():

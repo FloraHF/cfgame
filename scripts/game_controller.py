@@ -1,5 +1,8 @@
+#!/usr/bin/env python
+
 import rospy
-from std_srvs.srv import Empty
+from std_srvs.srv import Empty, EmptyResponse
+
 
 class gameController(object):
 
@@ -9,42 +12,42 @@ class gameController(object):
 		self._play_clients = self._create_client_list('/set_play')
 		self._land_clients = self._create_client_list('/set_land')
 
-	    rospy.Service('alltackoff', Empty, self._alltakeoff)
-	    rospy.Service('allplay', Empty, self._allplay)
-	    rospy.Service('allland', Empty, self._allland)
+		rospy.Service('alltakeoff', Empty, self._alltakeoff)
+		rospy.Service('allplay', Empty, self._allplay)
+		rospy.Service('allland', Empty, self._allland)
 
 	def _create_client_list(self, name):
 		clients = []
-		for plyr, cf in self._player_dict.items()
+		for plyr, cf in self._player_dict.items():
 			srv_name = '/' + cf + name
 			rospy.wait_for_service(srv_name)
 			rospy.loginfo('game controller: found' + srv_name + 'service')
 			clients.append(rospy.ServiceProxy(srv_name, Empty))
 		return clients
 
-	def _alltakeoff(self, request):
+	def _alltakeoff(self, req):
 		for takeoff in self._takeoff_clients:
 			takeoff()
-		return Empty()
+		return EmptyResponse()
 		
-	def _allplay(self, request):
+	def _allplay(self, req):
 		for play in self._play_clients:
 			play()
-		return Empty()
+		return EmptyResponse()
 
-	def _allland(self, request):
+	def _allland(self, req):
 		for land in self._land_clients:
 			land()
-		return Empty()
+		return EmptyResponse()
 
-if __name__ = '__main__':
+if __name__ == '__main__':
 
-    rospy.init_node('game_controller', anonymous=True)
+	rospy.init_node('game_controller', anonymous=True)
 
-    D1 = rospy.get_param("~D1", 'cf4')
-    D2 = rospy.get_param("~D2", 'cf5')
-    I = rospy.get_param("~I", 'cf3')
+	D1 = rospy.get_param("~D1", 'cf4')
+	D2 = rospy.get_param("~D2", 'cf5')
+	I = rospy.get_param("~I", 'cf3')
 
-    game_controller = gameController(D1=D1, D2=D2, I=I)
+	game_controller = gameController(D1=D1, D2=D2, I=I)
 
-    rospy.spin()
+	rospy.spin()

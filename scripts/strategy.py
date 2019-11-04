@@ -6,8 +6,8 @@ import numpy as np
 from copy import deepcopy
 from math import sin, cos, sqrt, atan2, asin, acos, pi
 
-from std_srvs.srv import Empty
-from std_msgs.msg import String, float32
+from std_srvs.srv import Empty, EmptyResponse
+from std_msgs.msg import String, Float32
 from geometry_msgs.msg import PoseStamped, Twist
 from optitrack_broadcast.msg import Mocap
 
@@ -65,11 +65,11 @@ class Strategy():
         self._goal_pub = rospy.Publisher('goal', PoseStamped, queue_size=1)
         self._cmdV_pub = rospy.Publisher('cmdV', Twist, queue_size=1)
         self._policy_pub = rospy.Publisher('policy', String, queue_size=1)
-        self._a_pub = rospy.Publisher('a', float32, queue_size=1)
+        self._a_pub = rospy.Publisher('a', Float32, queue_size=1)
 
-        rospy.Service('/set_takeoff', Empty, self._set_takeoff)
-        rospy.Service('/set_play', Empty, self._set_play)
-        rospy.Service('/set_land', Empty, self._set_land)
+        rospy.Service('/'+self._player_dict[self._id]+'/set_takeoff', Empty, self._set_takeoff)
+        rospy.Service('/'+self._player_dict[self._id]+'/set_play', Empty, self._set_play)
+        rospy.Service('/'+self._player_dict[self._id]+'/set_land', Empty, self._set_land)
 
         self._takeoff = self._service_client('/cftakeoff')
         self._auto = self._service_client('/cfauto')
@@ -82,20 +82,20 @@ class Strategy():
         rospy.loginfo('found' + srv_name + 'service')
         return rospy.ServiceProxy(srv_name, Empty)
 
-    def _set_takeoff(self):
+    def _set_takeoff(self, req):
         self._state = 'hover'
         rospy.sleep(.11)
         self._takeoff()
-        return Empty()
+        return EmptyResponse()
 
-    def _set_play(self):
+    def _set_play(self, req):
         self._state = 'play'
         self._play()
-        return Empty()
+        return EmptyResponse()
 
-    def _set_land(self):
+    def _set_land(self, req):
         self._land()
-        return Empty()
+        return EmptyResponse()
 
     def _get_time(self):
         t = rospy.Time.now()
@@ -367,7 +367,7 @@ class Strategy():
         # print(pts[pt_id])
         self._goal_pub.publish(self._goal_msg)
 
-    def _play(self, dt, policy=_m_strategy):
+    def _game(self, dt, policy=_m_strategy):
         # _t = self._get_time()
         # _cap = False
         # end = False
@@ -413,7 +413,7 @@ class Strategy():
             wpts = self._set_waypoints()
             self._waypoints(event.current_real - event.last_real, wpts)
         elif self._state == 'play':
-            self._play(event.current_real - event.last_real)
+            self._game(event.current_real - event.last_real)
         elif self._state == 'land':
             pass
 

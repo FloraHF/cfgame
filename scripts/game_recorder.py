@@ -78,7 +78,7 @@ class GameRecorder(object):
             rs = []
             for tht in np.linspace(0, 6.28, 50):
                 x = xd[0] + .25*cos(tht)
-                y = xd[0] + .25*sin(tht)
+                y = xd[1] + .25*sin(tht)
                 rs.append((np.array([x, y])))
             return np.asarray(rs)
 
