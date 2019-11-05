@@ -29,14 +29,14 @@ class Strategy():
         self._v = velocity
         self._z = z
         self._r = r
-        self._cap_time = .5
+        self._cap_time = .0
         # a = a.split('/')
         # self._a = float(a[0]) / float(a[1])
         # self._LB = acos(self._a)
 
-        self._init_locations = {'D1': np.array([-.6, -0.16]),
-                                'D2': np.array([.6, -0.16]),
-                                'I': np.array([-0.1, .45])}
+        self._init_locations = {'D1': np.array([-.7, -0.1]),
+                                'D2': np.array([.7, -0.1]),
+                                'I': np.array([-0., .25])}
         self._locations = deepcopy(self._init_locations)
         self._velocities = {'D1': np.zeros(2), 'D2': np.zeros(2), 'I': np.zeros(2)}
         self._nv = 20
@@ -90,6 +90,7 @@ class Strategy():
 
     def _set_play(self, req):
         self._state = 'play'
+        self._end = False
         self._play()
         return EmptyResponse()
 
@@ -144,6 +145,7 @@ class Strategy():
         d1 = np.linalg.norm(self._locations['D1'] - self._locations['I'])
         d2 = np.linalg.norm(self._locations['D2'] - self._locations['I'])
         cap = (d1 < self._r) or (d2 < self._r)
+        # print(d1, cap)
         # print('captured:', cap, d1, d2)
         return cap
 
@@ -209,17 +211,18 @@ class Strategy():
         return d1, d2, a1, a2
 
     def _z_strategy(self):
+        self._policy_pub.publish('z_strategy')
         d1, d2 = self._get_d()
         tht = self._get_theta()
         if self._id == 'D1':
-            return -pi / 2
+            return -pi / 2 + atan2(self._vecs['D1_I'][0], self._vecs['D1_I'][1])
         elif self._id == 'D2':
-            return pi / 2
+            return pi / 2 + atan2(self._vecs['D2_I'][0], self._vecs['D2_I'][1])
         elif self._id == 'I':
             cpsi = d2 * sin(tht)
             spsi = -(d1 - d2 * cos(tht))
             psi = atan2(spsi, cpsi)
-            return psi
+            return psi + atan2(-self._vecs['D2_I'][0], -self._vecs['D2_I'][1])
 
     def _h_strategy(self, x, y, z, a):
         x_ = {'D1': np.array([0, -z]),
@@ -273,7 +276,7 @@ class Strategy():
         d1, d2, a1, a2 = self._get_alpha()
         a = self._get_a()
 
-        close = self._r * 1.3
+        close = self._r * 1.1
         if np.linalg.norm(self._vecs['D1_I']) < close and np.linalg.norm(self._vecs['D2_I']) < close:  # in both range
             self._policy_pub.publish('both close')
             if self._id == 'D1':
@@ -367,7 +370,7 @@ class Strategy():
         # print(pts[pt_id])
         self._goal_pub.publish(self._goal_msg)
 
-    def _game(self, dt, policy=_m_strategy):
+    def _game(self, dt, policy=_z_strategy):
         # _t = self._get_time()
         # _cap = False
         # end = False
@@ -378,6 +381,7 @@ class Strategy():
         # dt = t - _t
         # _t = t
         if not self._end:
+            # print('playing')
             heading = policy(self)
             vx = self._v * cos(heading)
             vy = self._v * sin(heading)
@@ -394,13 +398,16 @@ class Strategy():
                     self._time_inrange = 0
                 self._last_cap = True
                 print(self._time_inrange)
-            if self._time_inrange >= self._cap_time:
+            if self._time_inrange > self._cap_time:
                 self._end = True
+                print('game end')
+                # print(self._time_inrange)
                 # self._updateGoal(self._locations[self._id])
                 # self._goal_pub.publish(self._goal_msg)
                 self._auto()
         else:
             self._goal_pub.publish(self._goal_msg)
+            # print('landing')
             if self._id == 'I':
                 self._land()
 
@@ -411,9 +418,11 @@ class Strategy():
             self._hover()
         elif self._state == 'wpts':
             wpts = self._set_waypoints()
-            self._waypoints(event.current_real - event.last_real, wpts)
+            t = event.current_real - event.last_real
+            self._waypoints(t.secs + t.nsecs*1e-9, wpts)
         elif self._state == 'play':
-            self._game(event.current_real - event.last_real)
+            t = event.current_real - event.last_real
+            self._game(t.secs + t.nsecs*1e-9)
         elif self._state == 'land':
             pass
 
@@ -427,7 +436,8 @@ if __name__ == '__main__':
 
     player_id = rospy.get_param("~player_id", 'D1')
     velocity = rospy.get_param("~velocity", .1)
-    cap_range = rospy.get_param("~cap_range", .5)
+    cap_range = rospy.get_param("~cap_range", .25)
+    # print(cap_range)
     z = rospy.get_param("~z", .5)
 
     worldFrame = rospy.get_param("~worldFrame", "/world")

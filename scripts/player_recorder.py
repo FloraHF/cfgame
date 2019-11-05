@@ -156,13 +156,13 @@ class PlayerRecorder(object):
         t = self._get_time() - self._init_time
         self._policies.record(t, policy)
         with open(self._policy_dirc, 'a') as f:
-            f.write('%.3f,'%t + policy + '\n')
+            f.write('%.3f,'%t + policy.data + '\n')
 
     def _update_a(self, a):
         t = self._get_time() - self._init_time
         self._as.record(t, a)
         with open(self._a_dirc, 'a') as f:
-            f.write('%.3f, %.3f\n'%(t, a))
+            f.write('%.3f, %.3f\n'%(t, a.data))
 
     def _update_mocap(self, mocap):
         t = self._get_time() - self._init_time
