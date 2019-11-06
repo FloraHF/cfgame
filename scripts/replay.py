@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import os
 import numpy as np
-from math import sin, cos, atan2, sqrt, pi
+from math import sin, cos, acos, atan2, sqrt, pi
 from scipy.interpolate import interp1d
 
 script_dir = os.path.dirname(__file__)
@@ -56,7 +56,7 @@ def read_xy(t_start, t_end, file='location.csv'):
 		    for line in data:
 		        datastr = line.split(',')
 		        time = float(datastr[0])
-		        if time > t_start-0.1 and time < t_end+0.1:
+		        if time > t_start-0.2 and time < t_end+0.2:
 		        	t.append(time)
 		        	x.append(float(datastr[1]))
 		        	y.append(float(datastr[2]))
@@ -145,12 +145,11 @@ def h_strategy(xd1, yd1, xd2, yd2, xi, yi, a=.1/.15):
 	xi_, yi_   = x, y
 
 	# print(xd1_, yd1_, xd2_, yd2_, xi_, yi_)
-
-	Delta = sqrt(np.maximum(x ** 2 - (1 - 1 / a ** 2) * (x ** 2 + y ** 2 - (z / a) ** 2), 0))
-	if (x + Delta) / (1 - 1 / a ** 2) - x > 0:
-	    xP = (x + Delta) / (1 - 1 / a ** 2)
+	Delta = sqrt(np.maximum(x**2 - (1 - 1/a**2)*(x**2 + y**2 - (z/a)**2), 0))
+	if (x + Delta) / (1 - 1/a**2) - x > 0:
+	    xP = (x + Delta) / (1 - 1/a**2)
 	else:
-	    xP = -(x + Delta) / (1 - 1 / a ** 2)
+	    xP = -(x + Delta) / (1 - 1/a**2)
 
 	P = np.array([xP, 0, 0])
 	D1_P = P - np.array([xd1_, yd1_, 0])
@@ -183,7 +182,7 @@ def plot_cap_ring(ax, xd, yd, r=0.25, color='r'):
 t_start, t_end, t_close, fp = read_policy()
 colors = ['b', 'g', 'r']
 fx, fy = read_xy(t_start, t_end, file='location.csv')
-fvx, fvy = read_xy(t_start, t_end, file='cmdVtemp.csv')
+fvx, fvy = read_xy(t_start, t_end, file='velocity.csv')
 fa = read_a(t_start, t_end)
 
 fig, ax = plt.subplots()
@@ -199,15 +198,32 @@ for i in range(3):
 		plot_cap_ring(ax, fx[i](t_close[i]), fy[i](t_close[i]), color=colors[i]+'--')
 
 # velocity vector
-for k in np.linspace(0.05, .95, 10):
-	t = k*(t_end - t_start) + t_start
+for t in [17.8]:
+# for k in np.linspace(0.1, .9, 10):
+	# t = k*(t_end - t_start) + t_start
 	xd1, yd1 = fx[0](t), fy[0](t)
 	xd2, yd2 = fx[1](t), fy[1](t)
 	xi, yi = fx[2](t), fy[2](t)
-	headings = h_strategy(xd1, yd1, xd2, yd2, xi, yi, a=fa[0](t))
+	D1_I, D2_I, D1_D2 = get_vecs(xd1, yd1, xd2, yd2, xi, yi)
+
+	vxd1, vyd1 = fvx[0](t), fvy[0](t)
+	vxi, vyi = fvx[2](t), fvy[2](t)
+	Vd1 = np.array([vxd1, vyd1, 0])
+	phi_1 = atan2(np.cross(D1_I, Vd1)[-1], np.dot(D1_I, Vd1))
+	Vd1_mag = np.linalg.norm(Vd1)
+	if .15 > Vd1_mag:
+		psi = - abs(acos(Vd1_mag * cos(phi_1) / .15))
+	else:
+		psi = - abs(phi_1)
+	print(Vd1_mag*cos(phi_1) - .15*cos(psi), phi_1*180/pi, psi*180/pi)
+	psi = pi - get_theta(D1_I, D2_I, D1_D2) + psi	
 
 	for i in range(3):
-		vx, vy = cos(headings[i])/20, sin(headings[i])/20
+		if i == 2:
+			heading = psi + atan2(-D2_I[1], -D2_I[0])
+		else:
+			heading = h_strategy(xd1, yd1, xd2, yd2, xi, yi, a=fa[i](t))[i]
+		vx, vy = cos(heading)/20, sin(heading)/20
 		# vx, vy = fvx[i](t), fvy[i](t)
 		# lenv = 30*sqrt(vx**2 + vy**2)
 		# vx, vy = vx/lenv, vy/lenv

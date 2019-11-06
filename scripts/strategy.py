@@ -288,7 +288,7 @@ class Strategy():
 
         close = self._r * 1.1
         if np.linalg.norm(self._vecs['D1_I']) < close and np.linalg.norm(self._vecs['D2_I']) < close:  # in both range
-            self._policy_pub.publish('both close')
+            self._policy_pub.publish('both_close')
             if self._id == 'D1':
                 p = 0
             elif self._id == 'D2':
@@ -296,14 +296,14 @@ class Strategy():
             elif self._id == 'I':
                 p = -tht / 2
         elif np.linalg.norm(self._vecs['D1_I']) < close:  # in D1's range
-            self._policy_pub.publish('D1 close')
+            self._policy_pub.publish('D1_close')
+            vD1 = np.concatenate((self._velocities['D1'], [0]))
+            phi_1 = atan2(np.cross(self._vecs['D1_I'], vD1)[-1], np.dot(self._vecs['D1_I'], vD1))
             if self._id == 'D1':
-                p = 0.96 * self._p
+                p = 0.96 * phi_1
             # elif self._id == 'D2':
             #     p = 0
             elif self._id == 'I':
-                vD1 = np.concatenate((self._velocities['D1'], [0]))
-                phi_1 = atan2(np.cross(self._vecs['D1_I'], vD1)[-1], np.dot(self._vecs['D1_I'], vD1))
                 vD1_mag = np.linalg.norm(vD1)
                 if self._v > vD1_mag:
                     psi = - abs(acos(vD1_mag * cos(phi_1) / self._v))
@@ -313,12 +313,6 @@ class Strategy():
 
         self._p = p
 
-        # if self._id == 'D1':
-        #     p = p + atan2(self._vecs['D1_I'][0], self._vecs['D1_I'][1])
-        # elif self._id == 'D2':
-        #     p = p + atan2(self._vecs['D2_I'][0], self._vecs['D2_I'][1])
-        # elif self._id == 'I':
-        #     p = p + atan2(-self._vecs['D2_I'][0], -self._vecs['D2_I'][1])
         return p
 
     def _hover(self):
@@ -342,28 +336,6 @@ class Strategy():
         return pts
 
     def _waypoints(self, dt, pts):
-        # rospy.sleep(10)
-        # _t = self._get_time()
-        # pts = [np.array([-.5, .5]),
-        #        np.array([-.5, -.5]),
-        #        np.array([.5, -.5]),
-        #        np.array([.5, .5]),
-        #        np.array([-.5, .5]),
-        #        np.array([-.5, -.5]),
-        #        np.array([.5, -.5]),
-        #        np.array([.5, .5]),
-        #        np.array([-.5, .5]),
-        #        np.array([-.5, -.5]),
-        #        np.array([.5, -.5]),
-        #        np.array([.5, .5]),
-        #        np.array([-.5, .5])]
-        # step = 3
-        # temp = 0
-        # pt_id = 0
-        # while not rospy.is_shutdown():
-            # t = self._get_time()
-            # dt = t - _t
-            # _t = t
         if self._wpts_time < self._wpts_segt:
             self._wpts_time += dt
         else:
@@ -379,11 +351,11 @@ class Strategy():
             # print('playing')
             p = policy(self)
             if self._id == 'D1':
-                base = atan2(self._vecs['D1_I'][0], self._vecs['D1_I'][1])
+                base = atan2(self._vecs['D1_I'][1], self._vecs['D1_I'][0])
             elif self._id == 'D2':
-                base = atan2(self._vecs['D2_I'][0], self._vecs['D2_I'][1])
+                base = atan2(self._vecs['D2_I'][1], self._vecs['D2_I'][0])
             elif self._id == 'I':
-                base = atan2(-self._vecs['D2_I'][0], -self._vecs['D2_I'][1])
+                base = atan2(-self._vecs['D2_I'][1], -self._vecs['D2_I'][0])
             heading = p + base
             vx = self._v * cos(heading)
             vy = self._v * sin(heading)
