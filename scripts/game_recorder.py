@@ -34,7 +34,15 @@ class GameRecorder(object):
         self._locs_plot = self._init_locs_plot()
 
         script_dir = os.path.dirname(__file__)
-        self._results_dir = os.path.join(script_dir, 'Results/')
+        # last_res_id = 0
+        # for _, dirc, file in os.walk(script_dir):
+        #     for d in dirc:
+        #         if 'res_' in d:
+        #             if int(d.split('_')[-1]) > last_res_id:
+        #                 last_res_id = int(d.split('_')[-1])
+        self._results_dir = os.path.join(script_dir, 'Results' + '/')
+        # print('!!!!!!!!!!!!', self._results_dir)
+        # rospy.Publisher('result_dir', String, queue_size=1).publish(self._res)
         if not os.path.isdir(self._results_dir):
             os.makedirs(self._results_dir)
 

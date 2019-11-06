@@ -20,8 +20,9 @@ class gameController(object):
 		clients = []
 		for plyr, cf in self._player_dict.items():
 			srv_name = '/' + cf + name
+			rospy.loginfo('game controller: waiting for ' + srv_name + ' service')
 			rospy.wait_for_service(srv_name)
-			rospy.loginfo('game controller: found' + srv_name + 'service')
+			rospy.loginfo('game controller: found' + srv_name + ' service')
 			clients.append(rospy.ServiceProxy(srv_name, Empty))
 		return clients
 
@@ -43,6 +44,7 @@ class gameController(object):
 if __name__ == '__main__':
 
 	rospy.init_node('game_controller', anonymous=True)
+	print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
 
 	D1 = rospy.get_param("~D1", 'cf4')
 	D2 = rospy.get_param("~D2", 'cf5')

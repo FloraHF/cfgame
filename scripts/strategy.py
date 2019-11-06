@@ -17,7 +17,7 @@ class Strategy():
     def __init__(self, player_id, velocity,
                  worldFrame, frame, rate=10,
                  z=.4, r=.5,
-                 player_dict={'D1': 'cf4', 'D2': 'cf5', 'I': 'cf3'}):
+                 player_dict={'D1': 'cf4', 'D2': 'cf5', 'I': 'cf0'}):
 
         self._worldFrame = worldFrame
         self._frame = frame
@@ -29,14 +29,14 @@ class Strategy():
         self._v = velocity
         self._z = z
         self._r = r
-        self._cap_time = .0
+        self._cap_time = .2
         # a = a.split('/')
         # self._a = float(a[0]) / float(a[1])
         # self._LB = acos(self._a)
 
         self._init_locations = {'D1': np.array([-.7, -0.1]),
                                 'D2': np.array([.7, -0.1]),
-                                'I': np.array([-0., .25])}
+                                'I': np.array([-0.15, .4])}
         self._locations = deepcopy(self._init_locations)
         self._velocities = {'D1': np.zeros(2), 'D2': np.zeros(2), 'I': np.zeros(2)}
         self._nv = 20
@@ -45,9 +45,11 @@ class Strategy():
                       'D2_I': np.concatenate((self._locations['I'] - self._locations['D2'], [0])),
                       'D1_D2': np.concatenate((self._locations['D2'] - self._locations['D1'], [0]))}
 
-        self._p = None
+        self._k_close = 0.9
+        self._r_close = 1.2*r
         self._last_cap = False
         self._end = False
+        self._activate = False
         self._time_inrange = 0.
         self._time_end = 0.
 
@@ -66,6 +68,8 @@ class Strategy():
         self._cmdV_pub = rospy.Publisher('cmdV', Twist, queue_size=1)
         self._policy_pub = rospy.Publisher('policy', String, queue_size=1)
         self._a_pub = rospy.Publisher('a', Float32, queue_size=1)
+        self._heading_rel_pub = rospy.Publisher('heading_rel', Float32, queue_size=1)
+        self._heading_act_pub = rospy.Publisher('heading_act', Float32, queue_size=1)
 
         rospy.Service('/'+self._player_dict[self._id]+'/set_takeoff', Empty, self._set_takeoff)
         rospy.Service('/'+self._player_dict[self._id]+'/set_play', Empty, self._set_play)
@@ -85,6 +89,7 @@ class Strategy():
     def _set_takeoff(self, req):
         self._state = 'hover'
         rospy.sleep(.11)
+        self._activate = True
         self._takeoff()
         return EmptyResponse()
 
@@ -118,7 +123,7 @@ class Strategy():
         self._locations['D1'] = np.array([data.position[0], data.position[1]])
         self._velocities['D1'] = np.array([data.velocity[0], data.velocity[1]])
         self._vecs['D1_I'] = np.concatenate((self._locations['I'] - self._locations['D1'], [0]))
-        self._vecs['D2_D1'] = np.concatenate((self._locations['D2'] - self._locations['D1'], [0]))
+        self._vecs['D2_D1'] = np.concatenate((self._locations['D1'] - self._locations['D2'], [0]))
         if len(self._vel_norm['D1']) > self._nv:
             self._vel_norm['D1'].pop(0)
         self._vel_norm['D1'].append(sqrt(data.velocity[0] ** 2 + data.velocity[1] ** 2))
@@ -126,8 +131,8 @@ class Strategy():
     def _getD2(self, data):
         self._locations['D2'] = np.array([data.position[0], data.position[1]])
         self._velocities['D2'] = np.array([data.velocity[0], data.velocity[1]])
-        self._vecs['D2_D1'] = np.concatenate((self._locations['D2'] - self._locations['D1'], [0]))
-        self._vecs['D2_I'] = np.concatenate((self._locations['D2'] - self._locations['I'], [0]))
+        self._vecs['D2_D1'] = np.concatenate((self._locations['D1'] - self._locations['D2'], [0]))
+        self._vecs['D2_I'] = np.concatenate((self._locations['I'] - self._locations['D2'], [0]))
         if len(self._vel_norm['D2']) > self._nv:
             self._vel_norm['D2'].pop(0)
         self._vel_norm['D2'].append(sqrt(data.velocity[0] ** 2 + data.velocity[1] ** 2))
@@ -136,7 +141,7 @@ class Strategy():
         self._locations['I'] = np.array([data.position[0], data.position[1]])
         self._velocities['I'] = np.array([data.velocity[0], data.velocity[1]])
         self._vecs['D1_I'] = np.concatenate((self._locations['I'] - self._locations['D1'], [0]))
-        self._vecs['D2_I'] = np.concatenate((self._locations['D2'] - self._locations['I'], [0]))
+        self._vecs['D2_I'] = np.concatenate((self._locations['I'] - self._locations['D2'], [0]))
         if len(self._vel_norm['I']) > self._nv:
             self._vel_norm['I'].pop(0)
         self._vel_norm['I'].append(sqrt(data.velocity[0] ** 2 + data.velocity[1] ** 2))
@@ -259,7 +264,7 @@ class Strategy():
 
         LB = acos(a)
         if self._id == 'D1':
-            phi_2 = pi/2 - a2
+            phi_2 = pi/2 - a2 + 0.01
             # print(phi_2, a2)
             psi = -(pi/2 - LB + a2)
             d = d2*(sin(phi_2)/sin(LB))
@@ -286,23 +291,30 @@ class Strategy():
         else:
             p = self._i_strategy(d1, d2, a1, a2, tht, a)
 
-        close = self._r * 1.1
-        if np.linalg.norm(self._vecs['D1_I']) < close and np.linalg.norm(self._vecs['D2_I']) < close:  # in both range
+        return p
+
+    def _adjust_strategy(self, p):
+
+        tht = self._get_theta()
+
+        if np.linalg.norm(self._vecs['D1_I']) < self._r_close and np.linalg.norm(self._vecs['D2_I']) < self._r_close:  # in both range
             self._policy_pub.publish('both_close')
             if self._id == 'D1':
-                p = 0
+                vD1 = np.concatenate((self._velocities['D1'], [0]))
+                phi_1 = atan2(np.cross(self._vecs['D1_I'], vD1)[-1], np.dot(self._vecs['D1_I'], vD1))
+                p = self._k_close*phi_1
             elif self._id == 'D2':
-                p = 0
+                vD2 = np.concatenate((self._velocities['D2'], [0]))
+                phi_2 = atan2(np.cross(self._vecs['D2_I'], vD2)[-1], np.dot(self._vecs['D2_I'], vD2))
+                p = self._k_close*phi_2
             elif self._id == 'I':
                 p = -tht / 2
-        elif np.linalg.norm(self._vecs['D1_I']) < close:  # in D1's range
+        elif np.linalg.norm(self._vecs['D1_I']) < self._r_close:  # in D1's range
             self._policy_pub.publish('D1_close')
             vD1 = np.concatenate((self._velocities['D1'], [0]))
             phi_1 = atan2(np.cross(self._vecs['D1_I'], vD1)[-1], np.dot(self._vecs['D1_I'], vD1))
             if self._id == 'D1':
-                p = 0.96 * phi_1
-            # elif self._id == 'D2':
-            #     p = 0
+                p = self._k_close * phi_1
             elif self._id == 'I':
                 vD1_mag = np.linalg.norm(vD1)
                 if self._v > vD1_mag:
@@ -310,10 +322,30 @@ class Strategy():
                 else:
                     psi = - abs(phi_1)
                 p = pi - tht + psi
-
-        self._p = p
+        elif np.linalg.norm(self._vecs['D2_I']) < self._r_close:
+            self._policy_pub.publish('D2_close')
+            vD2 = np.concatenate((self._velocities['D2'], [0]))
+            phi_2 = atan2(np.cross(self._vecs['D2_I'], vD2)[-1], np.dot(self._vecs['D2_I'], vD2))
+            if self._id == 'D2':
+                p = self._k_close * phi_2
+            elif self._id == 'I':
+                vD2_mag = np.linalg.norm(vD2)
+                if self._v > vD2_mag:
+                    psi = abs(acos(vD2_mag * cos(phi_2) / self._v))
+                else:
+                    psi = abs(phi_2)
+                p = psi - pi
 
         return p
+
+    def _relative_to_physical(self, p):
+        if self._id == 'D1':
+            base = atan2(self._vecs['D1_I'][1], self._vecs['D1_I'][0])
+        elif self._id == 'D2':
+            base = atan2(self._vecs['D2_I'][1], self._vecs['D2_I'][0])
+        else:
+            base = atan2(-self._vecs['D2_I'][1], -self._vecs['D2_I'][0])
+        return p + base
 
     def _hover(self):
         self._updateGoal(goal=self._init_locations[self._id])
@@ -336,6 +368,7 @@ class Strategy():
         return pts
 
     def _waypoints(self, dt, pts):
+        pt_id = 0
         if self._wpts_time < self._wpts_segt:
             self._wpts_time += dt
         else:
@@ -345,18 +378,18 @@ class Strategy():
         # print(pts[pt_id])
         self._goal_pub.publish(self._goal_msg)
 
-    def _game(self, dt, policy=_z_strategy):
+    def _game(self, dt, D_policy=_z_strategy, I_policy=_m_strategy):
 
         if not self._end:
             # print('playing')
-            p = policy(self)
-            if self._id == 'D1':
-                base = atan2(self._vecs['D1_I'][1], self._vecs['D1_I'][0])
-            elif self._id == 'D2':
-                base = atan2(self._vecs['D2_I'][1], self._vecs['D2_I'][0])
-            elif self._id == 'I':
-                base = atan2(-self._vecs['D2_I'][1], -self._vecs['D2_I'][0])
-            heading = p + base
+            if self._id == 'I':
+                p = I_policy(self)
+            else:
+                p = D_policy(self)
+            p = self._adjust_strategy(p)
+            self._heading_rel_pub.publish(p)
+            heading = self._relative_to_physical(p)
+            self._heading_act_pub.publish(heading)
             vx = self._v * cos(heading)
             vy = self._v * sin(heading)
             cmdV = Twist()
@@ -371,21 +404,18 @@ class Strategy():
                 else:
                     self._time_inrange = 0
                 self._last_cap = True
-                print(self._time_inrange)
+                # print(self._time_inrange)
             if self._time_inrange > self._cap_time:
                 self._end = True
                 print('game end')
-                # print(self._time_inrange)
-                # self._updateGoal(self._locations[self._id])
-                # self._goal_pub.publish(self._goal_msg)
                 self._auto()
         else:
             self._goal_pub.publish(self._goal_msg)
             # print('landing')
-            if self._id == 'I':
-                self._land()
-
-            # self._rate.sleep()
+            if self._activate:
+                if self._id == 'I':
+                    self._land()
+                self._activate = False
 
     def iteration(self, event):
         if self._state == 'hover':

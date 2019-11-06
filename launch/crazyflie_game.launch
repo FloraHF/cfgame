@@ -25,14 +25,21 @@
   <arg name="id_D2" default="D2"/>
   <arg name="z_D2" default=".35"/>
 
-  <arg name="uri_I" default="radio://0/84/1M/E7E7E7E703" />
-  <arg name="frame_I" default="cf3" />
+  <arg name="uri_I" default="radio://0/80/1M/E7E7E7E700" />
+  <arg name="frame_I" default="cf0" />
   <arg name="id_I" default="I"/>
   <arg name="v_I" default=".15"/>
   <arg name="z_I" default=".4"/>
 
   <arg name="a" default="$(arg v_D)/$(arg v_I)"/>
-  
+
+  <!-- game data recorder -->
+  <node name="game_recorder" pkg="crazyflie_game" type="game_recorder.py" output="screen">
+      <param name="D1" value="$(arg frame_D1)"/>
+      <param name="D2" value="$(arg frame_D2)" />
+      <param name="I" value="$(arg frame_I)" />
+  </node>
+
   <!-- start crazyflie_client -->
   <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
   </include>
@@ -77,13 +84,6 @@
     <!-- <arg name="a" default="$(arg a)"/> -->
     <arg name="z" default="$(arg z_I)"/>
   </include>
-
-  <!-- game data recorder -->
-  <node name="game_recorder" pkg="crazyflie_game" type="game_recorder.py" output="screen">
-      <param name="D1" value="$(arg frame_D1)"/>
-      <param name="D2" value="$(arg frame_D2)" />
-      <param name="I" value="$(arg frame_I)" />
-  </node>
 
   <node name="game_controller" pkg="crazyflie_game" type="game_controller.py" output="screen">
       <param name="D1" value="$(arg frame_D1)"/>

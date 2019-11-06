@@ -38,6 +38,8 @@ class PlayerRecorder(object):
                  mocap="/cf2/mocap",
                  a='/cf2/a',
                  policy='/cf2/policy',
+                 heading_act='',
+                 heading_rel='',
                  max_size=1e4,
                  rate=10):
 
@@ -45,8 +47,15 @@ class PlayerRecorder(object):
         self._init_time = self._get_time()
         self._save_interval = 5
         script_dir = os.path.dirname(__file__)
-        self._results_dir = os.path.join(script_dir, 'Results' + self._cf_id + '/live/')
-        self._data_dir = os.path.join(script_dir, 'Results' + self._cf_id + '/data/')
+        # current_dirc_id = 0
+        # for _, dirc, file in os.walk(script_dir):
+        #     for d in dirc:
+        #         if 'res_' in d:
+        #             if current_dirc_id < int(d.split('_')[-1]):
+        #                 current_dirc_id = int(d.split('_')[-1])
+        self._results_dir = os.path.join(script_dir, 'Results' +self._cf_id+'/live/')
+        # print('player recorder!!!!!!!!!!!!!', self._results_dir)
+        self._data_dir = os.path.join(script_dir, 'Results' +self._cf_id+'/data/')
         if not os.path.isdir(self._results_dir):
             os.makedirs(self._results_dir)
         if not os.path.isdir(self._data_dir):
@@ -59,15 +68,17 @@ class PlayerRecorder(object):
         self._cmd_vel_dirc = os.path.join(self._data_dir, 'cmd_vel.csv')
         self._a_dirc = os.path.join(self._data_dir, 'a.csv')
         self._policy_dirc = os.path.join(self._data_dir, 'policy.csv')
+        self._heading_act_dirc = os.path.join(self._data_dir, 'actual_heading.csv')
+        self._heading_rel_dirc = os.path.join(self._data_dir, 'relative_heading.csv')
 
         self._locs = DataRecorder(max_size=max_size)
-        self._goals = DataRecorder(max_size=max_size)
-        self._cmdVs = DataRecorder(max_size=max_size)
-        self._vels = DataRecorder(max_size=max_size)
-        self._eulers = DataRecorder(max_size=max_size)
-        self._cmd_vels = DataRecorder(max_size=max_size)
-        self._as = DataRecorder(max_size=max_size)
-        self._policies = DataRecorder(max_size=max_size)
+        # self._goals = DataRecorder(max_size=max_size)
+        # self._cmdVs = DataRecorder(max_size=max_size)
+        # self._vels = DataRecorder(max_size=max_size)
+        # self._eulers = DataRecorder(max_size=max_size)
+        # self._cmd_vels = DataRecorder(max_size=max_size)
+        # self._as = DataRecorder(max_size=max_size)
+        # self._policies = DataRecorder(max_size=max_size)
 
         self.rate = rospy.Rate(rate)
         self._goal_sub = rospy.Subscriber(goal, PoseStamped, self._update_goal)
@@ -76,6 +87,8 @@ class PlayerRecorder(object):
         self._cmdVtemp_sub = rospy.Subscriber(Vtemp, Twist, self._update_cmdVtemp)
         self._cmd_vel_sub = rospy.Subscriber(cmd_vel, Twist, self._update_cmd_vel)
         self._policy_sub = rospy.Subscriber(policy, String, self._update_policy)
+        self._heading_act_sub = rospy.Subscriber(heading_act, Float32, self._record_heading_act)
+        self._heading_rel_sub = rospy.Subscriber(heading_rel, Float32, self._record_heading_rel)
         self._a_sub = rospy.Subscriber(a, Float32, self._update_a)
         # print(mocap)
         # print(goal)
@@ -154,15 +167,25 @@ class PlayerRecorder(object):
 
     def _update_policy(self, policy):
         t = self._get_time() - self._init_time
-        self._policies.record(t, policy)
+        # self._policies.record(t, policy)
         with open(self._policy_dirc, 'a') as f:
             f.write('%.3f,'%t + policy.data + '\n')
 
     def _update_a(self, a):
         t = self._get_time() - self._init_time
-        self._as.record(t, a)
+        # self._as.record(t, a)
         with open(self._a_dirc, 'a') as f:
             f.write('%.3f, %.3f\n'%(t, a.data))
+
+    def _record_heading_rel(self, hr):
+        t = self._get_time() - self._init_time
+        with open(self._heading_rel_dirc, 'a') as f:
+            f.write('%.3f, %.3f\n'%(t, hr.data))
+
+    def _record_heading_act(self, ha):
+        t = self._get_time() - self._init_time
+        with open(self._heading_act_dirc, 'a') as f:
+            f.write('%.3f, %.3f\n'%(t, ha.data))
 
     def _update_mocap(self, mocap):
         t = self._get_time() - self._init_time
@@ -171,12 +194,12 @@ class PlayerRecorder(object):
         with open(self._location_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, mocap.position[0], mocap.position[1], mocap.position[2]))
 
-        self._vels.record(t, mocap.velocity)
+        # self._vels.record(t, mocap.velocity)
         with open(self._velocity_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, mocap.velocity[0], mocap.velocity[1], mocap.velocity[2]))
 
         euler = self._qt_to_euler(mocap)
-        self._eulers.record(t, euler)
+        # self._eulers.record(t, euler)
         with open(self._euler_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, euler[0], euler[1], euler[2]))
 
@@ -186,7 +209,7 @@ class PlayerRecorder(object):
         y = goal.pose.position.y
         z = goal.pose.position.z
         t = self._get_time() - self._init_time
-        self._goals.record(t, np.array([x, y, z]))
+        # self._goals.record(t, np.array([x, y, z]))
 
         with open(self._goal_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, x, y, z))
@@ -196,7 +219,7 @@ class PlayerRecorder(object):
         y = cmd.linear.y
         z = cmd.linear.z
         t = self._get_time() - self._init_time
-        self._cmd_vels.record(t, np.array([x, y, z]))
+        # self._cmd_vels.record(t, np.array([x, y, z]))
 
         with open(self._cmd_vel_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, x, y, z))
@@ -207,7 +230,7 @@ class PlayerRecorder(object):
         z = cmdVtemp.linear.z
         t = self._get_time() - self._init_time
 
-        self._cmdVs.record(t, np.array([x, y, z]))
+        # self._cmdVs.record(t, np.array([x, y, z]))
         with open(self._cmdVtemp_dirc, 'a') as f:
             f.write('%.3f, %.3f, %.3f, %.3f\n'%(t, x, y, z))
 
@@ -317,7 +340,9 @@ if __name__ == '__main__':
                       Vtemp=cf_id+'/cmdVtemp',
                       mocap=cf_id+'/mocap',
                       a=cf_id+'/a',
-                      policy=cf_id+'/policy')
+                      policy=cf_id+'/policy',
+                      heading_act=cf_id+'/heading_act',
+                      heading_rel=cf_id+'/heading_rel',)
     rospy.spin()
     # L = 1000
     # while not rospy.is_shutdown():
