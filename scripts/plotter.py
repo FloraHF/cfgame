@@ -50,6 +50,25 @@ def plot_data(cf_id, files=['location.csv', 'goal.csv'], labels=['x(m)', 'y(m)',
     fig.savefig(fig_dir + files[0].split('.')[0] + '.png')
 
 
+def plot_a(cf_id, file='a.csv', res_dir='res1/'):
+    data_dir = os.path.join(script_dir, res_dir + cf_id + '/data/')
+    fig_dir = os.path.join(script_dir, res_dir + cf_id + '/fig/')
+    if not os.path.isdir(fig_dir):
+        os.makedirs(fig_dir)
+
+    fig, ax = plt.subplots()
+    with open(data_dir + file) as f:
+        data = f.readlines()
+        t, a = [], []
+        for line in data:
+            datastr = line.split(',')
+            t.append(float(datastr[0]))
+            a.append(float(datastr[1]))
+    ax.plot(t, a)
+    ax.grid()
+    fig.savefig(fig_dir + 'a.png')
+
+
 def plot_traj(cfs=['cf4', 'cf5', 'cf3'], res_dir='res1/Results/'):
 
     def cap_ring(xd, r=0.25):
@@ -79,7 +98,7 @@ def plot_traj(cfs=['cf4', 'cf5', 'cf3'], res_dir='res1/Results/'):
         #     for line in data:
         #         p.append(line.split(',')[0])
 
-    i_start, i_end = 1000, len(xs[0])-500
+    i_start, i_end = 800, len(xs[0])-200
     for x, y, p, color in zip(xs, ys, policies, colors):
             ax.plot(x[i_start: i_end], y[i_start: i_end], color)
 
@@ -101,22 +120,26 @@ def plot_traj(cfs=['cf4', 'cf5', 'cf3'], res_dir='res1/Results/'):
     ax.set_ylabel('y(m)')
     ax.axis('equal')
     ax.grid()
+    plt.show()
 
     fig.savefig(fig_dir + 'traj.png')
 
-cfs = ['cf4', 'cf5', 'cf3']
-res = 'res3/Results/'
-for cf in cfs:
-    plot_data(cf, files=['location.csv', 'goal.csv'], 
-                labels=['x(m)', 'y(m)', 'z(m)'], 
-                res_dir=res)
 
-    plot_data(cf, files=['velocity.csv', 'cmdVtemp.csv'], 
-                labels=['vz(m/s)', 'vy(m/s)', 'vz(m/s)'], 
-                res_dir=res)
+if __name__ == '__main__':
+    cfs = ['cf4', 'cf5', 'cf3']
+    res = 'res1/'
+    for cf in cfs:
+        plot_data(cf, files=['location.csv', 'goal.csv'], 
+                    labels=['x(m)', 'y(m)', 'z(m)'], 
+                    res_dir=res)
 
-    plot_data(cf, files=['euler.csv', 'cmd_vel.csv'], 
-                labels=['roll(/s)', 'pitch(/s)', 'yaw(/s)', 'thrust(PWM)'], 
-                res_dir=res)
+        plot_data(cf, files=['velocity.csv', 'cmdVtemp.csv'], 
+                    labels=['vz(m/s)', 'vy(m/s)', 'vz(m/s)'], 
+                    res_dir=res)
 
-plot_traj(cfs=cfs, res_dir=res)
+        plot_data(cf, files=['euler.csv', 'cmd_vel.csv'], 
+                    labels=['roll(/s)', 'pitch(/s)', 'yaw(/s)', 'thrust(PWM)'], 
+                    res_dir=res)
+        plot_a(cf)
+
+    plot_traj(cfs=cfs, res_dir=res)

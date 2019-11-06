@@ -212,19 +212,22 @@ class Strategy():
 
     def _z_strategy(self):
         self._policy_pub.publish('z_strategy')
+
         d1, d2 = self._get_d()
         tht = self._get_theta()
         if self._id == 'D1':
-            return -pi / 2 + atan2(self._vecs['D1_I'][0], self._vecs['D1_I'][1])
+            return -pi / 2
         elif self._id == 'D2':
-            return pi / 2 + atan2(self._vecs['D2_I'][0], self._vecs['D2_I'][1])
+            return pi / 2
         elif self._id == 'I':
             cpsi = d2 * sin(tht)
             spsi = -(d1 - d2 * cos(tht))
             psi = atan2(spsi, cpsi)
-            return psi + atan2(-self._vecs['D2_I'][0], -self._vecs['D2_I'][1])
+            return psi
 
     def _h_strategy(self, x, y, z, a):
+        self._policy_pub.publish('h_strategy')
+
         x_ = {'D1': np.array([0, -z]),
               'D2': np.array([0, z]),
               'I': np.array([x, y])}
@@ -252,6 +255,8 @@ class Strategy():
             return psi
 
     def _i_strategy(self, d1, d2, a1, a2, tht, a):
+        self._policy_pub.publish('i_strategy')
+
         LB = acos(a)
         if self._id == 'D1':
             phi_2 = pi/2 - a2
@@ -276,6 +281,11 @@ class Strategy():
         d1, d2, a1, a2 = self._get_alpha()
         a = self._get_a()
 
+        if x < -0.05:
+            p = self._h_strategy(x, y, z, a)
+        else:
+            p = self._i_strategy(d1, d2, a1, a2, tht, a)
+
         close = self._r * 1.1
         if np.linalg.norm(self._vecs['D1_I']) < close and np.linalg.norm(self._vecs['D2_I']) < close:  # in both range
             self._policy_pub.publish('both close')
@@ -289,8 +299,8 @@ class Strategy():
             self._policy_pub.publish('D1 close')
             if self._id == 'D1':
                 p = 0.96 * self._p
-            elif self._id == 'D2':
-                p = 0
+            # elif self._id == 'D2':
+            #     p = 0
             elif self._id == 'I':
                 vD1 = np.concatenate((self._velocities['D1'], [0]))
                 phi_1 = atan2(np.cross(self._vecs['D1_I'], vD1)[-1], np.dot(self._vecs['D1_I'], vD1))
@@ -300,22 +310,15 @@ class Strategy():
                 else:
                     psi = - abs(phi_1)
                 p = pi - tht + psi
-        else:
-            if x < -0.05:
-                self._policy_pub.publish('h_strategy')
-                p = self._h_strategy(x, y, z, a)
-            else:
-                self._policy_pub.publish('i_strategy')
-                p = self._i_strategy(d1, d2, a1, a2, tht, a)
 
         self._p = p
 
-        if self._id == 'D1':
-            p = p + atan2(self._vecs['D1_I'][0], self._vecs['D1_I'][1])
-        elif self._id == 'D2':
-            p = p + atan2(self._vecs['D2_I'][0], self._vecs['D2_I'][1])
-        elif self._id == 'I':
-            p = p + atan2(-self._vecs['D2_I'][0], -self._vecs['D2_I'][1])
+        # if self._id == 'D1':
+        #     p = p + atan2(self._vecs['D1_I'][0], self._vecs['D1_I'][1])
+        # elif self._id == 'D2':
+        #     p = p + atan2(self._vecs['D2_I'][0], self._vecs['D2_I'][1])
+        # elif self._id == 'I':
+        #     p = p + atan2(-self._vecs['D2_I'][0], -self._vecs['D2_I'][1])
         return p
 
     def _hover(self):
@@ -371,18 +374,17 @@ class Strategy():
         self._goal_pub.publish(self._goal_msg)
 
     def _game(self, dt, policy=_z_strategy):
-        # _t = self._get_time()
-        # _cap = False
-        # end = False
-        # time_inrange = 0
-        # time_end = 0
-        # while not rospy.is_shutdown():
-        # t = self._get_time()
-        # dt = t - _t
-        # _t = t
+
         if not self._end:
             # print('playing')
-            heading = policy(self)
+            p = policy(self)
+            if self._id == 'D1':
+                base = atan2(self._vecs['D1_I'][0], self._vecs['D1_I'][1])
+            elif self._id == 'D2':
+                base = atan2(self._vecs['D2_I'][0], self._vecs['D2_I'][1])
+            elif self._id == 'I':
+                base = atan2(-self._vecs['D2_I'][0], -self._vecs['D2_I'][1])
+            heading = p + base
             vx = self._v * cos(heading)
             vy = self._v * sin(heading)
             cmdV = Twist()
