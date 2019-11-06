@@ -198,9 +198,9 @@ for i in range(3):
 		plot_cap_ring(ax, fx[i](t_close[i]), fy[i](t_close[i]), color=colors[i]+'--')
 
 # velocity vector
-for t in [17.8]:
-# for k in np.linspace(0.1, .9, 10):
-	# t = k*(t_end - t_start) + t_start
+# for t in [17.8]:
+for k in np.linspace(0.1, .9, 10):
+	t = k*(t_end - t_start) + t_start
 	xd1, yd1 = fx[0](t), fy[0](t)
 	xd2, yd2 = fx[1](t), fy[1](t)
 	xi, yi = fx[2](t), fy[2](t)
@@ -219,10 +219,7 @@ for t in [17.8]:
 	psi = pi - get_theta(D1_I, D2_I, D1_D2) + psi	
 
 	for i in range(3):
-		if i == 2:
-			heading = psi + atan2(-D2_I[1], -D2_I[0])
-		else:
-			heading = h_strategy(xd1, yd1, xd2, yd2, xi, yi, a=fa[i](t))[i]
+		heading = h_strategy(xd1, yd1, xd2, yd2, xi, yi, a=fa[i](t))[i]
 		vx, vy = cos(heading)/20, sin(heading)/20
 		# vx, vy = fvx[i](t), fvy[i](t)
 		# lenv = 30*sqrt(vx**2 + vy**2)
