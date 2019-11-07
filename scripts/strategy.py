@@ -390,6 +390,7 @@ class Strategy():
             self._heading_rel_pub.publish(p)
             heading = self._relative_to_physical(p)
             self._heading_act_pub.publish(heading)
+            
             vx = self._v * cos(heading)
             vy = self._v * sin(heading)
             cmdV = Twist()

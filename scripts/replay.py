@@ -19,7 +19,7 @@ class ReplayPool(object):
 
 		self._t_start, self._t_end, self._t_close, self._fp = self._read_policy()
 		self._fx, self._fy = self._read_xy(self._t_start, self._t_end, file='location.csv')
-		self._fvx, self._fvy = self._read_xy(self._t_start, self._t_end, file='velocity.csv')
+		self._fvx, self._fvy = self._read_xy(self._t_start, self._t_end, file='cmdVtemp.csv')
 		self._fa = self._read_a(self._t_start, self._t_end)
 		self._fh = self._read_heading(self._t_start, self._t_end)
 
@@ -174,20 +174,22 @@ class ReplayPool(object):
 
 	########################## policies ###########################
 	def _get_physical_heading(self, phi_1, phi_2, psi, D1_I, D2_I, D1_D2):
-		# print(phi_1*180/pi, phi_2*180/pi, psi*180/pi)
+		print('relative headings', phi_1*180/pi, phi_2*180/pi, psi*180/pi)
 		dphi_1 = atan2(D1_I[1], D1_I[0])
 		dphi_2 = atan2(D2_I[1], D2_I[0])
 		dpsi = atan2(-D2_I[1], -D2_I[0])
 		# print(dphi_1*180/pi, dphi_2*180/pi, dpsi*180/pi)
 		phi_1 += dphi_1
 		phi_2 += dphi_2
-		psi += psi
+		psi += dpsi
+		print('physical headings', phi_1*180/pi, phi_2*180/pi, psi*180/pi)
 		return phi_1, phi_2, psi
 
 	def _h_strategy(self, xd1, yd1, xd2, yd2, xi, yi, a=.1/.15):
 
 		D1_I, D2_I, D1_D2 = self._get_vecs(xd1, yd1, xd2, yd2, xi, yi)
 		x, y, z = self._get_xyz(D1_I, D2_I, D1_D2)
+		print('xyz', x, y, z)
 
 		xd1_, yd1_ = 0, -z
 		xd2_, yd2_ = 0,  z
@@ -254,27 +256,39 @@ class ReplayPool(object):
 	        y = yd + r*sin(tht)
 	        rs.append((np.array([x, y])))
 	    rs = np.asarray(rs)
-	    ax.plot(rs[:,0], rs[:,1], color)
+	    ax.plot(rs[:, 0], rs[:,1], color)
 
-	def _plot_velocity_arrow(self, ax, n=10):
+	def _plot_velocity_arrow(self, ax, n=15):
 
-		for k in np.linspace(0.1, .9, 10):
+		for k in np.linspace(0.1, .9, 5):
+		# for k in [.1]:
 			t = k*(self._t_end - self._t_start) + self._t_start
 
 			xd1, yd1, xd2, yd2, xi, yi = self._get_location(t)
 			D1_I, D2_I, D1_D2 = self._get_vecs(xd1, yd1, xd2, yd2, xi, yi)
 			vxd1, vyd1, vxd2, vyd2, vxi, vyi = self._get_velocity(t)
-			# headings = self._get_heading(t)
+			headings_exp = self._get_heading(t)
+			# phi_1, phi_2, psi = self._h_strategy(xd1, yd1, xd2, yd2, xi, yi)
+			# headings_anl = self._get_physical_heading(phi_1, phi_2, psi, D1_I, D2_I, D1_D2)
 
 			for i in range(3):
-				heading = self._h_strategy(xd1, yd1, xd2, yd2, xi, yi, a=self._fa[i](t))[i]
-				# heading = headings[i]
+				vx, vy = self._fvx[i](t), self._fvy[i](t)
+				lenv = 30*sqrt(vx**2 + vy**2)
+				vx, vy = vx/lenv, vy/lenv	
+				ax.arrow(self._fx[i](t), self._fy[i](t), vx, vy, 
+						fc='r', ec='r', head_width=.01, zorder=10)
+
+				heading = headings_exp[i]
 				vx, vy = cos(heading)/20, sin(heading)/20
-				# vx, vy = self._fvx[i](t), self._fvy[i](t)
-				# lenv = 30*sqrt(vx**2 + vy**2)
-				# vx, vy = vx/lenv, vy/lenv
 				ax.arrow(self._fx[i](t), self._fy[i](t), vx, vy, 
 						fc='k', head_width=.01, zorder=10)
+				
+				phi_1, phi_2, psi = self._h_strategy(xd1, yd1, xd2, yd2, xi, yi, a=self._fa[i](t))
+				headings_anl = self._get_physical_heading(phi_1, phi_2, psi, D1_I, D2_I, D1_D2)
+				heading = headings_anl[i]
+				vx, vy = cos(heading)/20, sin(heading)/20
+				ax.arrow(self._fx[i](t), self._fy[i](t), vx, vy, 
+						fc='b', ec='b', head_width=.01, zorder=10)
 
 	def plot_traj(self):
 
@@ -297,6 +311,9 @@ class ReplayPool(object):
 
 ########################## main function ##########################
 if __name__ == '__main__':
+	cfs=['cf4', 'cf5', 'cf0']
+	res_dir='init_location_1/res1/'
+	r=.25
 
-	replayer = ReplayPool()
+	replayer = ReplayPool(cfs=cfs, res_dir=res_dir, r=r)
 	replayer.plot_traj()
