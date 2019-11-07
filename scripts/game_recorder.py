@@ -2,8 +2,9 @@
 
 import os
 import numpy as np
-from math import pi, cos, sin
+from math import pi, cos, sin, sqrt
 import rospy
+from std_msgs.msg import Float32
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from std_msgs.msg import Float32MultiArray
@@ -26,10 +27,19 @@ class GameRecorder(object):
         self._locations = {'D1': DataRecorder(max_size=max_size),
                            'D2': DataRecorder(max_size=max_size),
                            'I': DataRecorder(max_size=max_size)}
-        self._sub_callback_dict = {'D1': self._getLocD1, 'D2': self._getLocD2, 'I': self._getLocI}
-        self._subs = dict()
+        self._headings = {'D1': DataRecorder(max_size=max_size),
+                          'D2': DataRecorder(max_size=max_size),
+                          'I': DataRecorder(max_size=max_size)}
+        self._location_sub_callback_dict = {'D1': self._getLocD1, 'D2': self._getLocD2, 'I': self._getLocI}
+        self._location_subs = dict()
         for p_id, cf_frame in self._player_dict.items():
-            self._subs.update({p_id: rospy.Subscriber('/' + cf_frame + '/mocap', Mocap, self._sub_callback_dict[p_id])})
+            self._location_subs.update({p_id: rospy.Subscriber('/' + cf_frame + '/mocap', Mocap, self._location_sub_callback_dict[p_id])})
+
+        self._heading_sub_callback_dict = {'D1': self._getHeadingD1, 'D2': self._getHeadingD2, 'I': self._getHeadingI}
+        self._heading_subs = dict()
+        for p_id, cf_frame in self._player_dict.items():
+            self._heading_subs.update(
+                {p_id: rospy.Subscriber('/' + cf_frame + '/heading_anl', Float32, self._heading_sub_callback_dict[p_id])})
 
         self._locs_plot = self._init_locs_plot()
 
@@ -59,6 +69,15 @@ class GameRecorder(object):
     def _getLocI(self, data):
         self._locations['I'].record(self._get_time() - self._init_time, np.array([data.position[0], data.position[1]]))
 
+    def _getHeadingD1(self, data):
+        self._headings['D1'].record(self._get_time() - self._init_time, data.data)
+
+    def _getHeadingD2(self, data):
+        self._headings['D2'].record(self._get_time() - self._init_time, data.data)
+
+    def _getHeadingI(self, data):
+        self._headings['I'].record(self._get_time() - self._init_time, data.data)
+
     def _init_locs_plot(self):
         fig, ax = plt.subplots(tight_layout=True)
         ax.set_xlabel('x(m)')
@@ -82,6 +101,11 @@ class GameRecorder(object):
         xD2 = np.asarray(self._locations['D2'].data)
         xI = np.asarray(self._locations['I'].data)
 
+        hD1 = np.asarray(self._headings['D1'].data)
+        hD2 = np.asarray(self._headings['D2'].data)
+        hI = np.asarray(self._headings['I'].data)
+        # print(hD1)
+
         def get_cap_ring(xd):
             rs = []
             for tht in np.linspace(0, 6.28, 50):
@@ -89,6 +113,12 @@ class GameRecorder(object):
                 y = xd[1] + .25*sin(tht)
                 rs.append((np.array([x, y])))
             return np.asarray(rs)
+
+        def draw_anl_arrow(ax, x, y, heading):
+            vx, vy = cos(heading), sin(heading)
+            lenv = 10*sqrt(vx**2 + vy**2)
+            vx, vy = vx/lenv, vy/lenv
+            ax.arrow(x, y, vx, vy, fc='b', ec='b', head_width=.01, zorder=10)
 
         if len(xD1) > 100 and len(xD2) > 100 and len(xI) > 100:
             self._locs_plot['axs'].clear()
@@ -99,6 +129,10 @@ class GameRecorder(object):
             ring2 = get_cap_ring(xD2[-1, :])
             self._locs_plot['axs'].plot(ring1[:, 0], ring1[:, 1], 'b')
             self._locs_plot['axs'].plot(ring2[:, 0], ring2[:, 1], 'g')
+            if len(hD1) > 1 and len(hD2) > 1 and len(hI) > 1:
+                draw_anl_arrow(self._locs_plot['axs'], xD1[-1, 0], xD1[-1, 1], hD1[-1])
+                draw_anl_arrow(self._locs_plot['axs'], xD2[-1, 0], xD2[-1, 1], hD2[-1])
+                draw_anl_arrow(self._locs_plot['axs'], xI[-1, 0], xI[-1, 1], hI[-1])
             self._locs_plot['fig'].canvas.draw()
             self._locs_plot['axs'].grid()
             self._locs_plot['axs'].axis('equal')

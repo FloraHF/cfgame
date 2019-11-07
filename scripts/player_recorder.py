@@ -40,6 +40,7 @@ class PlayerRecorder(object):
                  policy='/cf2/policy',
                  heading_act='',
                  heading_rel='',
+                 heading_anl='',
                  max_size=1e4,
                  rate=10):
 
@@ -70,6 +71,7 @@ class PlayerRecorder(object):
         self._policy_dirc = os.path.join(self._data_dir, 'policy.csv')
         self._heading_act_dirc = os.path.join(self._data_dir, 'actual_heading.csv')
         self._heading_rel_dirc = os.path.join(self._data_dir, 'relative_heading.csv')
+        self._heading_anl_dirc = os.path.join(self._data_dir, 'analytic_heading.csv')
 
         self._locs = DataRecorder(max_size=max_size)
         # self._goals = DataRecorder(max_size=max_size)
@@ -89,6 +91,7 @@ class PlayerRecorder(object):
         self._policy_sub = rospy.Subscriber(policy, String, self._update_policy)
         self._heading_act_sub = rospy.Subscriber(heading_act, Float32, self._record_heading_act)
         self._heading_rel_sub = rospy.Subscriber(heading_rel, Float32, self._record_heading_rel)
+        self._heading_anl_sub = rospy.Subscriber(heading_anl, Float32, self._record_heading_anl)
         self._a_sub = rospy.Subscriber(a, Float32, self._update_a)
         # print(mocap)
         # print(goal)
@@ -185,6 +188,11 @@ class PlayerRecorder(object):
     def _record_heading_act(self, ha):
         t = self._get_time() - self._init_time
         with open(self._heading_act_dirc, 'a') as f:
+            f.write('%.3f, %.3f\n'%(t, ha.data))
+
+    def _record_heading_anl(self, ha):
+        t = self._get_time() - self._init_time
+        with open(self._heading_anl_dirc, 'a') as f:
             f.write('%.3f, %.3f\n'%(t, ha.data))
 
     def _update_mocap(self, mocap):
@@ -342,7 +350,8 @@ if __name__ == '__main__':
                       a=cf_id+'/a',
                       policy=cf_id+'/policy',
                       heading_act=cf_id+'/heading_act',
-                      heading_rel=cf_id+'/heading_rel',)
+                      heading_rel=cf_id+'/heading_rel',
+                      heading_anl=cf_id+'/heading_anl')
     rospy.spin()
     # L = 1000
     # while not rospy.is_shutdown():

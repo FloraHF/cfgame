@@ -30,13 +30,14 @@ class Strategy():
         self._z = z
         self._r = r
         self._cap_time = .2
+        self._a_anl = .1/.15
         # a = a.split('/')
         # self._a = float(a[0]) / float(a[1])
         # self._LB = acos(self._a)
 
-        self._init_locations = {'D1': np.array([-.7, -0.1]),
-                                'D2': np.array([.7, -0.1]),
-                                'I': np.array([-0.15, .4])}
+        self._init_locations = {'D1': np.array([-0.7077, -0.0895]),
+                                'D2': np.array([0.7077, -0.0895]),
+                                'I': np.array([-0.125, 0.642])}
         self._locations = deepcopy(self._init_locations)
         self._velocities = {'D1': np.zeros(2), 'D2': np.zeros(2), 'I': np.zeros(2)}
         self._nv = 20
@@ -45,7 +46,7 @@ class Strategy():
                       'D2_I': np.concatenate((self._locations['I'] - self._locations['D2'], [0])),
                       'D1_D2': np.concatenate((self._locations['D2'] - self._locations['D1'], [0]))}
 
-        self._k_close = 0.9
+        self._k_close = 0.85
         self._r_close = 1.2*r
         self._last_cap = False
         self._end = False
@@ -70,6 +71,7 @@ class Strategy():
         self._a_pub = rospy.Publisher('a', Float32, queue_size=1)
         self._heading_rel_pub = rospy.Publisher('heading_rel', Float32, queue_size=1)
         self._heading_act_pub = rospy.Publisher('heading_act', Float32, queue_size=1)
+        self._heading_anl_pub = rospy.Publisher('heading_anl', Float32, queue_size=1)
 
         rospy.Service('/'+self._player_dict[self._id]+'/set_takeoff', Empty, self._set_takeoff)
         rospy.Service('/'+self._player_dict[self._id]+'/set_play', Empty, self._set_play)
@@ -215,7 +217,7 @@ class Strategy():
         a2 = asin(self._r / d2)
         return d1, d2, a1, a2
 
-    def _z_strategy(self):
+    def _z_strategy(self, a):
         self._policy_pub.publish('z_strategy')
 
         d1, d2 = self._get_d()
@@ -279,12 +281,14 @@ class Strategy():
         elif self._id == 'I':
             return -(pi/2 - LB + a2)
 
-    def _m_strategy(self):
+    def _m_strategy(self, a=None):
 
         x, y, z = self._get_xyz()
         tht = self._get_theta()
         d1, d2, a1, a2 = self._get_alpha()
-        a = self._get_a()
+
+        if a is None:
+            a = self._get_a()
 
         if x < -0.05:
             p = self._h_strategy(x, y, z, a)
@@ -338,6 +342,26 @@ class Strategy():
 
         return p
 
+    def _act_strategy(self, D_policy, I_policy):
+        if self._id == 'I':
+            p = I_policy(self, None)
+        else:
+            p = D_policy(self, None)
+        p = self._adjust_strategy(p)
+        self._heading_rel_pub.publish(p)
+        heading = self._relative_to_physical(p)
+        self._heading_act_pub.publish(heading)
+        return heading
+
+    def _anl_strategy(self, D_policy, I_policy, a):
+        if self._id == 'I':
+            p = I_policy(self, a)
+        else:
+            p = D_policy(self, a)
+        p = self._adjust_strategy(p)
+        heading = self._relative_to_physical(p)
+        self._heading_anl_pub.publish(heading)
+
     def _relative_to_physical(self, p):
         if self._id == 'D1':
             base = atan2(self._vecs['D1_I'][1], self._vecs['D1_I'][0])
@@ -382,14 +406,8 @@ class Strategy():
 
         if not self._end:
             # print('playing')
-            if self._id == 'I':
-                p = I_policy(self)
-            else:
-                p = D_policy(self)
-            p = self._adjust_strategy(p)
-            self._heading_rel_pub.publish(p)
-            heading = self._relative_to_physical(p)
-            self._heading_act_pub.publish(heading)
+            self._anl_strategy(D_policy, I_policy, .1/.15)
+            heading = self._act_strategy(D_policy, I_policy)
             
             vx = self._v * cos(heading)
             vy = self._v * sin(heading)

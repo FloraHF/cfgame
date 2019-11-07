@@ -18,18 +18,18 @@
   <arg name="frame_D1" default="cf4" />
   <arg name="id_D1" default="D1"/>
   <arg name="v_D" default=".1"/>
-  <arg name="z_D1" default=".3"/>
+  <arg name="z_D1" default=".4"/>
 
   <arg name="uri_D2" default="radio://0/88/1M/E7E7E7E705" />
   <arg name="frame_D2" default="cf5" />
   <arg name="id_D2" default="D2"/>
-  <arg name="z_D2" default=".35"/>
+  <arg name="z_D2" default=".4"/>
 
   <arg name="uri_I" default="radio://0/80/1M/E7E7E7E700" />
   <arg name="frame_I" default="cf0" />
   <arg name="id_I" default="I"/>
   <arg name="v_I" default=".15"/>
-  <arg name="z_I" default=".4"/>
+  <arg name="z_I" default=".45"/>
 
   <arg name="a" default="$(arg v_D)/$(arg v_I)"/>
 
