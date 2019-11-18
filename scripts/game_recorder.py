@@ -15,27 +15,47 @@ from player_recorder import DataRecorder
 
 class GameRecorder(object):
 
-    def __init__(self, D1='cf4', D2='cf5', I='cf3',
+    def __init__(self, Ds='', Is='',
+                 vd=0., vi=0.,
+                 r=0., r_close=1.2, k_close=0.9,
                  max_size=1e4,
                  rate=10):
 
+        self._player_dict = dict()
+        for i, D in enumerate(Ds):
+            if D != '':
+                self._player_dict['D'+str(i+1)] = D
+        for i, I in enumerate(Is):
+            if I != '':
+                self._player_dict['I'+str(i+1)] = I
+
+        script_dir = os.path.dirname(__file__)
+        self._info_dir = os.path.join(script_dir, 'Results/info.csv')
+        with open(self._info_dir, 'a') as f:
+            for role, cf in self._player_dict.items():
+                f.write(role + ',' + cf + '\n')
+            f.write('vd,%.2f'%vd + '\n')
+            f.write('vi,%.2f'%vi + '\n')
+            f.write('rc,%.2f'%r + '\n')
+            f.write('r_close,%.2f'%r_close + '\n')
+            f.write('k_close,%.2f'%k_close + '\n')
+
         self._init_time = self._get_time()
         self._save_interval = 50
-        self._player_dict = {'D1': D1, 'D2': D2, 'I': I}
         self.rate = rospy.Rate(rate)
 
         self._locations = {'D1': DataRecorder(max_size=max_size),
                            'D2': DataRecorder(max_size=max_size),
-                           'I': DataRecorder(max_size=max_size)}
+                           'I1': DataRecorder(max_size=max_size)}
         self._headings = {'D1': DataRecorder(max_size=max_size),
                           'D2': DataRecorder(max_size=max_size),
-                          'I': DataRecorder(max_size=max_size)}
-        self._location_sub_callback_dict = {'D1': self._getLocD1, 'D2': self._getLocD2, 'I': self._getLocI}
+                          'I1': DataRecorder(max_size=max_size)}
+        self._location_sub_callback_dict = {'D1': self._getLocD1, 'D2': self._getLocD2, 'I1': self._getLocI}
         self._location_subs = dict()
         for p_id, cf_frame in self._player_dict.items():
             self._location_subs.update({p_id: rospy.Subscriber('/' + cf_frame + '/mocap', Mocap, self._location_sub_callback_dict[p_id])})
 
-        self._heading_sub_callback_dict = {'D1': self._getHeadingD1, 'D2': self._getHeadingD2, 'I': self._getHeadingI}
+        self._heading_sub_callback_dict = {'D1': self._getHeadingD1, 'D2': self._getHeadingD2, 'I1': self._getHeadingI}
         self._heading_subs = dict()
         for p_id, cf_frame in self._player_dict.items():
             self._heading_subs.update(
@@ -67,7 +87,7 @@ class GameRecorder(object):
         self._locations['D2'].record(self._get_time() - self._init_time, np.array([data.position[0], data.position[1]]))
 
     def _getLocI(self, data):
-        self._locations['I'].record(self._get_time() - self._init_time, np.array([data.position[0], data.position[1]]))
+        self._locations['I1'].record(self._get_time() - self._init_time, np.array([data.position[0], data.position[1]]))
 
     def _getHeadingD1(self, data):
         self._headings['D1'].record(self._get_time() - self._init_time, data.data)
@@ -76,7 +96,7 @@ class GameRecorder(object):
         self._headings['D2'].record(self._get_time() - self._init_time, data.data)
 
     def _getHeadingI(self, data):
-        self._headings['I'].record(self._get_time() - self._init_time, data.data)
+        self._headings['I1'].record(self._get_time() - self._init_time, data.data)
 
     def _init_locs_plot(self):
         fig, ax = plt.subplots(tight_layout=True)
@@ -99,11 +119,11 @@ class GameRecorder(object):
     def plot_locs(self):
         xD1 = np.asarray(self._locations['D1'].data)
         xD2 = np.asarray(self._locations['D2'].data)
-        xI = np.asarray(self._locations['I'].data)
+        xI = np.asarray(self._locations['I1'].data)
 
         hD1 = np.asarray(self._headings['D1'].data)
         hD2 = np.asarray(self._headings['D2'].data)
-        hI = np.asarray(self._headings['I'].data)
+        hI = np.asarray(self._headings['I1'].data)
         # print(hD1)
 
         def get_cap_ring(xd):
@@ -143,9 +163,17 @@ class GameRecorder(object):
 if __name__ == '__main__':
 
     rospy.init_node('game_recorder', anonymous=True)
-    D1 = rospy.get_param("~D1", 'cf4')
-    D2 = rospy.get_param("~D2", 'cf5')
-    I = rospy.get_param("~I", 'cf3')
-    recorder = GameRecorder(D1=D1, D2=D2, I=I)
+
+    Ds = rospy.get_param("~Ds", '').split(',')
+    Is = rospy.get_param("~Is", '').split(',')
+    vd = rospy.get_param("~vd", 0.)
+    vi = rospy.get_param("~vi", 0.)
+    r = rospy.get_param("~a", 0.)
+    r_close = rospy.get_param("~r_close", 1.)
+    k_close = rospy.get_param("~k_close", .9)
+
+    recorder = GameRecorder(Ds=Ds, Is=Is, vd=vd, vi=vi, r=rk,
+                            r_close=r_close, k_close=k_close)
+
     while not rospy.is_shutdown():
         recorder.plot_locs()

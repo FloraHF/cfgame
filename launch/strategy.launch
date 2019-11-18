@@ -5,6 +5,8 @@
   <!-- arguments -->
   <arg name="world_frame" default="/world" />
   <arg name="cf_frame" default="/cf" />
+  <arg name="Ds" value="cf4,cf5"/>
+  <arg name="Is" value="cf0" />
   <arg name="player_id" default="D1"/>
   <arg name="velocity" default=".1"/>
   <arg name="cap_range" default=".5"/>
@@ -15,6 +17,8 @@
   <node name="strategy" pkg="crazyflie_game" type="strategy.py" output="screen">
       <param name="worldFrame" value="$(arg world_frame)" />
       <param name="frame" value="$(arg cf_frame)" />
+      <param name="Ds" value="$(arg Ds)"/>
+      <param name="Is" value="$(arg Is)" />
       <param name="player_id" value="$(arg player_id)"/>
       <param name='velocity' value="$(arg velocity)" />
       <param name="cap_range" value="$(arg cap_range)"/>

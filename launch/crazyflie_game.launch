@@ -13,21 +13,20 @@
   <arg name="server" default="192.168.2.230" />
   <arg name="port" default="3883" />
   <arg name="r" default=".25"/>
+  <arg name="r_close" default="1.2"/>
+  <arg name="k_close" default="0.9"/>
 
   <arg name="uri_D1" default="radio://0/88/1M/E7E7E7E704" />
   <arg name="frame_D1" default="cf4" />
-  <arg name="id_D1" default="D1"/>
   <arg name="v_D" default=".1"/>
   <arg name="z_D1" default=".4"/>
 
   <arg name="uri_D2" default="radio://0/88/1M/E7E7E7E705" />
   <arg name="frame_D2" default="cf5" />
-  <arg name="id_D2" default="D2"/>
   <arg name="z_D2" default=".4"/>
 
   <arg name="uri_I" default="radio://0/80/1M/E7E7E7E700" />
   <arg name="frame_I" default="cf0" />
-  <arg name="id_I" default="I"/>
   <arg name="v_I" default=".15"/>
   <arg name="z_I" default=".45"/>
 
@@ -35,9 +34,13 @@
 
   <!-- game data recorder -->
   <node name="game_recorder" pkg="crazyflie_game" type="game_recorder.py" output="screen">
-      <param name="D1" value="$(arg frame_D1)"/>
-      <param name="D2" value="$(arg frame_D2)" />
-      <param name="I" value="$(arg frame_I)" />
+      <param name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+      <param name="Is" value="$(arg frame_I)" />
+      <param name="vd" value="$(arg v_D)" />
+      <param name="vi" value="$(arg v_I)" />
+      <prame name="r" value="$(arg r)">
+      <prame name="r_close" value="$(arg r_close)">
+      <prame name="k_close" value="$(arg k_close)">
   </node>
 
   <!-- start crazyflie_client -->
@@ -51,44 +54,55 @@
 
   <!-- add the intruder -->
   <include file="$(find crazyflie_game)/launch/add_player.launch">
-    <arg name="world_frame" default="$(arg world_frame)" />
-    <arg name="uri" default="$(arg uri_I)" />
-    <arg name="frame" default="$(arg frame_I)" />
-    <arg name="id" default="$(arg id_I)"/>
+    <arg name="id" default="I"/> <!--player-->
+    <arg name="frame" default="$(arg frame_I)" /> <!--crazyflie id-->
+    <arg name="uri" default="$(arg uri_I)" /> <!--radio uri-->
     <arg name="v" default="$(arg v_I)"/>
     <arg name="r" default="$(arg r)"/>
-    <!-- <arg name="a" default="$(arg a)"/> -->
     <arg name="z" default="$(arg z_D1)"/>
+    <arg name="r_close" value="$(arg r_close)">
+    <arg name="k_close" value="$(arg k_close)"> <!--parameters individual-->
+    <arg name="world_frame" default="$(arg world_frame)" />
+    <arg name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+    <arg name="Is" value="$(arg frame_I)" /> 
+    <arg name="a" value="$(arg a)" /><!--world information-->
   </include>
 
   <!-- add defender 1 -->
   <include file="$(find crazyflie_game)/launch/add_player.launch">
-    <arg name="world_frame" default="$(arg world_frame)" />
-    <arg name="uri" default="$(arg uri_D1)" />
-    <arg name="frame" default="$(arg frame_D1)" />
-    <arg name="id" default="$(arg id_D1)"/>
-    <arg name="v" default="$(arg v_D)"/>
+    <arg name="id" default="D1"/> <!--player-->
+    <arg name="frame" default="$(arg frame_D1)" /> <!--crazyflie id-->
+    <arg name="uri" default="$(arg uri_D1)" /> <!--radio uri-->
+    <arg name="v" default="$(arg v_D)"/> 
     <arg name="r" default="$(arg r)"/>
-    <!-- <arg name="a" default="$(arg a)"/> -->
     <arg name="z" default="$(arg z_D2)"/>
+    <arg name="r_close" value="$(arg r_close)">
+    <arg name="k_close" value="$(arg k_close)"> <!--parameters individual-->
+    <arg name="world_frame" default="$(arg world_frame)" />
+    <arg name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+    <arg name="Is" value="$(arg frame_I)" />
+    <arg name="a" value="$(arg a)" /> <!--world information-->
   </include>
 
   <!-- add defender 2 -->
   <include file="$(find crazyflie_game)/launch/add_player.launch">
-    <arg name="world_frame" default="$(arg world_frame)" />
-    <arg name="uri" default="$(arg uri_D2)" />
-    <arg name="frame" default="$(arg frame_D2)" />
-    <arg name="id" default="$(arg id_D2)"/>
+    <arg name="id" default="D2"/> <!--player-->
+    <arg name="frame" default="$(arg frame_D2)" /> <!--crazyflie id-->
+    <arg name="uri" default="$(arg uri_D2)" /> <!--radio uri-->
     <arg name="v" default="$(arg v_D)"/>
     <arg name="r" default="$(arg r)"/>
-    <!-- <arg name="a" default="$(arg a)"/> -->
     <arg name="z" default="$(arg z_I)"/>
+    <arg name="r_close" value="$(arg r_close)">
+    <arg name="k_close" value="$(arg k_close)"> <!--parameters individual-->
+    <arg name="world_frame" default="$(arg world_frame)" />
+    <arg name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+    <arg name="Is" value="$(arg frame_I)" />
+    <arg name="a" value="$(arg a)" /> <!--world information-->
   </include>
 
-  <node name="game_controller" pkg="crazyflie_game" type="game_controller.py" output="screen">
-      <param name="D1" value="$(arg frame_D1)"/>
-      <param name="D2" value="$(arg frame_D2)" />
-      <param name="I" value="$(arg frame_I)" />
+  <node name="game_server" pkg="crazyflie_game" type="game_server.py" output="screen">
+      <param name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+      <param name="Is" value="$(arg frame_I)" />
   </node>
 
 

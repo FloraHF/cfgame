@@ -4,10 +4,18 @@ import rospy
 from std_srvs.srv import Empty, EmptyResponse
 
 
-class gameController(object):
+class gameServer(object):
 
-	def __init__(self, D1='cf4', D2='cf5', I='cf3'):
-		self._player_dict = {'D1': D1, 'D2': D2, 'I': I}
+	def __init__(self, Ds='', Is=''):
+
+		self._player_dict = dict()
+		for i, D in enumerate(Ds):
+			if D != '':
+				self._player_dict['D'+str(i+1)] = D
+		for i, I in enumerate(Is):
+			if I != '':
+				self._player_dict['I'+str(i+1)] = I
+
 		self._takeoff_clients = self._create_client_list('/set_takeoff')
 		self._play_clients = self._create_client_list('/set_play')
 		self._land_clients = self._create_client_list('/set_land')
@@ -19,11 +27,12 @@ class gameController(object):
 	def _create_client_list(self, name):
 		clients = []
 		for plyr, cf in self._player_dict.items():
-			srv_name = '/' + cf + name
-			rospy.loginfo('game controller: waiting for ' + srv_name + ' service')
-			rospy.wait_for_service(srv_name)
-			rospy.loginfo('game controller: found' + srv_name + ' service')
-			clients.append(rospy.ServiceProxy(srv_name, Empty))
+			if len(cf) > 0:
+				srv_name = '/' + cf + name
+				rospy.loginfo('game controller: waiting for ' + srv_name + ' service')
+				rospy.wait_for_service(srv_name)
+				rospy.loginfo('game controller: found' + srv_name + ' service')
+				clients.append(rospy.ServiceProxy(srv_name, Empty))
 		return clients
 
 	def _alltakeoff(self, req):
@@ -43,13 +52,11 @@ class gameController(object):
 
 if __name__ == '__main__':
 
-	rospy.init_node('game_controller', anonymous=True)
-	print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+	rospy.init_node('game_server', anonymous=True)
 
-	D1 = rospy.get_param("~D1", 'cf4')
-	D2 = rospy.get_param("~D2", 'cf5')
-	I = rospy.get_param("~I", 'cf3')
+	Ds = rospy.get_param("~Ds", '').split(',')
+	Is = rospy.get_param("~Is", '').split(',')
 
-	game_controller = gameController(D1=D1, D2=D2, I=I)
+	game_server = gameServer(Ds=Ds, Is=Is)
 
 	rospy.spin()

@@ -9,7 +9,7 @@ from scipy.interpolate import interp1d
 class ReplayPool(object):
 
 	def __init__(self,  cfs=['cf4', 'cf5', 'cf0'],
-						res_dir='init_location_1/res1/',
+						res_dir='res1/',
 						r=.25):
 
 		self._script_dir = os.path.dirname(__file__)
