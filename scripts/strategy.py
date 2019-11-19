@@ -250,9 +250,9 @@ class Strategy(object):
         D1_P = P - np.concatenate((x_['D1'], [0]))
         D2_P = P - np.concatenate((x_['D2'], [0]))
         I_P = P - np.concatenate((x_['I1'], [0]))
-        D1 = np.concatenate((x['D1'], [0]))
-        D2 = np.concatenate((x['D2'], [0]))
-        I = np.concatenate((x['I1'], [0]))
+        D1 = np.concatenate((x_['D1'], [0]))
+        D2 = np.concatenate((x_['D2'], [0]))
+        I = np.concatenate((x_['I1'], [0]))
         D1_I = I - D1
         D2_I = I - D2
         D1_D2 = D2 - D1
@@ -363,7 +363,7 @@ class Strategy(object):
 
         #============== no defender is close =============#
         else:
-            p = self.none_close_strategy(self, a)           
+            p = none_close_strategy(self, a)           
 
         return p
 
