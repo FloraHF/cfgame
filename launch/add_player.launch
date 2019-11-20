@@ -3,17 +3,17 @@
 <launch>
 
   <!-- arguments -->
-  <arg name="world_frame" default="/world" />
-  <arg name="Ds" value="cf4,cf5"/>
-  <arg name="Is" value="cf0" />
+  <!-- <arg name="world_frame" default="/world" /> -->
+<!--   <arg name="Ds" value="cf4,cf5"/>
+  <arg name="Is" value="cf0" /> -->
   <arg name="uri" default="radio://0/84/1M/E7E7E7E703" />
   <arg name="frame" default="cf4" />
-  <arg name="id" default="D1"/>
-  <arg name="v" default=".3"/>
+<!--   <arg name="id" default="D1"/> -->
+<!--   <arg name="v" default=".3"/>
   <arg name="r" default=".5"/>
   <arg name="z" default=".5"/>
   <arg name="r_close" value="1.2">
-  <arg name="k_close" value="0.9">
+  <arg name="k_close" value="0.9"> -->
 
   <!-- the intruder crazyflie -->
   <group ns='$(arg frame)'>
@@ -29,7 +29,7 @@
       <arg name="frame" value="$(arg frame)" />
     </include>
     <!-- add outer-loop controller, hover only for now -->
-    <include file="$(find crazyflie_game)/launch/strategy.launch">
+<!--     <include file="$(find crazyflie_game)/launch/strategy.launch">
       <arg name="world_frame" value="$(arg world_frame)" />
       <arg name="cf_frame" value="$(arg frame)" />
       <arg name="Ds" value="$(arg Ds)" />
@@ -37,11 +37,11 @@
       <arg name="player_id" value="$(arg id)"/>
       <arg name="velocity" value="$(arg v)"/>
       <arg name="cap_range" value="$(arg r)"/>
-      <arg name="r_close" value="$(arg r_close)">
-      <arg name="k_close" value="$(arg k_close)">
-      <!-- <arg name="speed_ratio" value="$(arg a)"/> -->
+      <arg name="r_close" value="$(arg r_close)" />
+      <arg name="k_close" value="$(arg k_close)" />
+      <arg name="speed_ratio" value="$(arg a)"/>
       <arg name="z" value="$(arg z)"/>
-    </include>
+    </include> -->
     
     <!-- add data recorder for each player -->
     <include file="$(find crazyflie_game)/launch/player_recorder.launch">
