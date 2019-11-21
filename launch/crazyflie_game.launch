@@ -12,18 +12,19 @@
   <!-- <arg name="world_frame" default="/world" /> -->
   <arg name="server" default="192.168.2.230" />
   <arg name="port" default="3883" />
-  <arg name="param_file" default="analytic_traj_param.csv" />
+  <arg name="param_file" default="traj_param_2.csv" />
+  <arg name="res_file" default="res6" />
 <!--   <arg name="r" default=".25"/>
   <arg name="r_close" default="1.2"/>
   <arg name="k_close" default="0.9"/> -->
 
-  <arg name="uri_D1" default="radio://0/88/1M/E7E7E7E704" />
-  <arg name="frame_D1" default="cf4" />
+  <arg name="uri_D1" default="radio://0/84/1M/E7E7E7E703" />
+  <arg name="frame_D1" default="cf3" />
   <!-- <arg name="v_D" default=".1"/> -->
   <arg name="z_D1" default=".4"/>
 
-  <arg name="uri_D2" default="radio://0/88/1M/E7E7E7E705" />
-  <arg name="frame_D2" default="cf5" />
+  <arg name="uri_D2" default="radio://0/88/1M/E7E7E7E704" />
+  <arg name="frame_D2" default="cf4" />
   <arg name="z_D2" default=".4"/>
 
   <arg name="uri_I" default="radio://0/80/1M/E7E7E7E700" />
@@ -35,8 +36,9 @@
 
   <!-- game data recorder -->
   <node name="game_recorder" pkg="crazyflie_game" type="game_recorder.py" output="screen">
-      <param name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+      <param name="Ds" value="$(arg frame_D1),$(arg frame_D2)"/>
       <param name="Is" value="$(arg frame_I)" />
+      <param name="logger_dir" value="$(arg res_file)" />
 <!--       <param name="vd" value="$(arg v_D)" />
       <param name="vi" value="$(arg v_I)" />
       <prame name="r" value="$(arg r)">
@@ -58,13 +60,14 @@
     <!-- <arg name="id" default="I"/> --> <!--player-->
     <arg name="frame" default="$(arg frame_I)" /> <!--crazyflie id-->
     <arg name="uri" default="$(arg uri_I)" /> <!--radio uri-->
+    <arg name="logger_dir" value="$(arg res_file)" />
 <!--     <arg name="v" default="$(arg v_I)"/>
     <arg name="r" default="$(arg r)"/>
     <arg name="z" default="$(arg z_D1)"/>
     <arg name="r_close" value="$(arg r_close)">
     <arg name="k_close" value="$(arg k_close)"> --> <!--parameters individual-->
     <!-- <arg name="world_frame" default="$(arg world_frame)" />
-    <arg name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+    <arg name="Ds" value="$(arg frame_D1),$(arg frame_D2)"/>
     <arg name="Is" value="$(arg frame_I)" /> 
     <arg name="a" value="$(arg a)" /> --><!--world information-->
   </include>
@@ -74,13 +77,14 @@
    <!--  <arg name="id" default="D1"/> --> <!--player-->
     <arg name="frame" default="$(arg frame_D1)" /> <!--crazyflie id-->
     <arg name="uri" default="$(arg uri_D1)" /> <!--radio uri-->
+    <arg name="logger_dir" value="$(arg res_file)" />
     <!-- <arg name="v" default="$(arg v_D)"/> 
     <arg name="r" default="$(arg r)"/>
     <arg name="z" default="$(arg z_D2)"/>
     <arg name="r_close" value="$(arg r_close)">
     <arg name="k_close" value="$(arg k_close)">  --><!--parameters individual-->
     <!-- <arg name="world_frame" default="$(arg world_frame)" />
-    <arg name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+    <arg name="Ds" value="$(arg frame_D1),$(arg frame_D2)"/>
     <arg name="Is" value="$(arg frame_I)" />
     <arg name="a" value="$(arg a)" />  --><!--world information-->
   </include>
@@ -90,28 +94,29 @@
     <!-- <arg name="id" default="D2"/> --> <!--player-->
     <arg name="frame" default="$(arg frame_D2)" /> <!--crazyflie id-->
     <arg name="uri" default="$(arg uri_D2)" /> <!--radio uri-->
+    <arg name="logger_dir" value="$(arg res_file)" />
     <!-- <arg name="v" default="$(arg v_D)"/>
     <arg name="r" default="$(arg r)"/>
     <arg name="z" default="$(arg z_I)"/>
     <arg name="r_close" value="$(arg r_close)">
     <arg name="k_close" value="$(arg k_close)"> --> <!--parameters individual-->
     <!-- <arg name="world_frame" default="$(arg world_frame)" />
-    <arg name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+    <arg name="Ds" value="$(arg frame_D1),$(arg frame_D2)"/>
     <arg name="Is" value="$(arg frame_I)" />
     <arg name="a" value="$(arg a)" /> --> <!--world information-->
   </include>
 
 <!--   <node name="game_server" pkg="crazyflie_game" type="game_server.py" output="screen">
-      <param name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+      <param name="Ds" value="$(arg frame_D1),$(arg frame_D2)"/>
       <param name="Is" value="$(arg frame_I)" />
   </node> -->
   <node name="RAgame" pkg="crazyflie_game" type="RAgame.py" output="screen">
-      <param name="Ds" value="$(arg frame_D1),(arg frame_D2)"/>
+      <param name="Ds" value="$(arg frame_D1),$(arg frame_D2)"/>
       <param name="Is" value="$(arg frame_I)" />
       <param name="zDs" value="$(arg z_D1),$(arg z_D2)" />
       <param name="zIs" value="$(arg z_I)" />
-      <param name="param_file" value="$(arg param_file)">
+      <param name="param_file" value="$(arg param_file)" />
+      <param name="logger_dir" value="$(arg res_file)" />
   </node>
-
 
 </launch>

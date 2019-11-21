@@ -420,8 +420,8 @@ class ReplayPool(object):
 
 ########################## main function ##########################
 if __name__ == '__main__':
-	cfs=['cf4', 'cf5', 'cf0']
-	res_dir='res1/'
+	cfs=['cf3', 'cf4', 'cf0']
+	res_dir='Results/'
 	r=.25
 
 	replayer = ReplayPool(cfs=cfs, res_dir=res_dir, r=r)

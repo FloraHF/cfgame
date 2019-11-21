@@ -8,6 +8,7 @@
   <arg name="Is" value="cf0" /> -->
   <arg name="uri" default="radio://0/84/1M/E7E7E7E703" />
   <arg name="frame" default="cf4" />
+  <arg name="logger_dir" default="res1" />
 <!--   <arg name="id" default="D1"/> -->
 <!--   <arg name="v" default=".3"/>
   <arg name="r" default=".5"/>
@@ -46,6 +47,7 @@
     <!-- add data recorder for each player -->
     <include file="$(find crazyflie_game)/launch/player_recorder.launch">
       <arg name="cf_frame" value="/$(arg frame)" />
+      <arg name="logger_dir" value="$(arg logger_dir)" />
     </include>
 
   </group>

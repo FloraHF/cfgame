@@ -42,7 +42,8 @@ class PlayerRecorder(object):
 				 heading_rel='',
 				 heading_anl='',
 				 max_size=1e4,
-				 rate=10):
+				 rate=10,
+				 logger_dir='res1'):
 
 		self._cf_id = cf_id
 		self._init_time = self._get_time()
@@ -54,9 +55,9 @@ class PlayerRecorder(object):
 		#		 if 'res_' in d:
 		#			 if current_dirc_id < int(d.split('_')[-1]):
 		#				 current_dirc_id = int(d.split('_')[-1])
-		self._results_dir = os.path.join(script_dir, 'Results'+self._cf_id+'/live/')
+		self._results_dir = os.path.join(script_dir, logger_dir+self._cf_id+'/live/')
 		# print('player recorder!!!!!!!!!!!!!', self._results_dir)
-		self._data_dir = os.path.join(script_dir, 'Results'+self._cf_id+'/data/')
+		self._data_dir = os.path.join(script_dir, logger_dir+self._cf_id+'/data/')
 		if not os.path.isdir(self._results_dir):
 			os.makedirs(self._results_dir)
 		if not os.path.isdir(self._data_dir):
@@ -171,6 +172,7 @@ class PlayerRecorder(object):
 	def _update_policy(self, policy):
 		t = self._get_time() - self._init_time
 		# self._policies.record(t, policy)
+		# print('policy updated')
 		with open(self._policy_dirc, 'a') as f:
 			f.write('%.3f,'%t + policy.data + '\n')
 
@@ -340,6 +342,7 @@ class PlayerRecorder(object):
 if __name__ == '__main__':
 	rospy.init_node('player_recorder', anonymous=True)
 	cf_id = rospy.get_param("~cf_frame", "/cf3")
+	logger_dir = rospy.get_param("~logger_dir",'')
 
 	recorder = PlayerRecorder(cf_id=cf_id,
 					  goal=cf_id+'/goal',
@@ -351,7 +354,8 @@ if __name__ == '__main__':
 					  policy=cf_id+'/policy',
 					  heading_act=cf_id+'/heading_act',
 					  heading_rel=cf_id+'/heading_rel',
-					  heading_anl=cf_id+'/heading_anl')
+					  heading_anl=cf_id+'/heading_anl',
+					  logger_dir=logger_dir)
 	rospy.spin()
 	# L = 1000
 	# while not rospy.is_shutdown():

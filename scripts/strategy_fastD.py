@@ -2,7 +2,7 @@ import numpy as np
 from math import atan2
 from scipy.optimize import NonlinearConstraint, minimize
 
-def dominant_region(x, xi, xds, a):
+def dominant_region(x, xi, xds, a, r):
     for i, xd in enumerate(xds):
         if i == 0:
             inDR = a*np.linalg.norm(x-xi) - (np.linalg.norm(x-xd) - r)
@@ -10,17 +10,17 @@ def dominant_region(x, xi, xds, a):
             inDR = max(inDR, a*np.linalg.norm(x-xi) - (np.linalg.norm(x-xd) - r))
     return inDR 
 
-def depth_in_target(xi, xds, target, a):
-    def dr(x, xi=xi, xds=xds, a=a):
-        return dominant_region(x, xi, xds, a)
+def depth_in_target(xi, xds, target, a, r):
+    def dr(x, xi=xi, xds=xds, a=a, r=r):
+        return dominant_region(x, xi, xds, a, r)
     on_dr = NonlinearConstraint(dr, -np.inf, 0)
     sol = minimize(target, xi, constraints=(on_dr,))
     return sol.x
 
-def deep_target_strategy(xi, xds, target, a):
+def deep_target_strategy(xi, xds, target, a, r):
     # print(xi, xds)
     
-    xt = depth_in_target(xi, xds, target, a)
+    xt = depth_in_target(xi, xds, target, a, r)
     # print(xt)
     IT = np.concatenate((xt - xi, np.zeros((1,))))
     DTs = []

@@ -17,7 +17,8 @@ class GameRecorder(object):
 
 	def __init__(self, Ds='', Is='',
 				 max_size=1e4,
-				 rate=10):
+				 rate=10,
+				 logger_dir='res1'):
 
 		self._player_dict = dict()
 		for i, D in enumerate(Ds):
@@ -28,20 +29,10 @@ class GameRecorder(object):
 				self._player_dict['I'+str(i+1)] = I
 
 		script_dir = os.path.dirname(__file__)
-		self._results_dir = os.path.join(script_dir, 'Results' + '/')
+		self._results_dir = os.path.join(script_dir, logger_dir + '/')
 		self._a_dirc = os.path.join(self._results_dir, 'a.csv')
 		if not os.path.isdir(self._results_dir):
 			os.makedirs(self._results_dir)
-
-		# self._info_dir = os.path.join(script_dir, 'Results/info.csv')
-		# with open(self._info_dir, 'a') as f:
-		# 	 for role, cf in self._player_dict.items():
-		# 		 f.write(role + ',' + cf + '\n')
-		# 	 f.write('vd,%.2f'%vd + '\n')
-		# 	 f.write('vi,%.2f'%vi + '\n')
-		# 	 f.write('rc,%.2f'%r + '\n')
-		# 	 f.write('r_close,%.2f'%r_close + '\n')
-		# 	 f.write('k_close,%.2f'%k_close + '\n')
 
 		self._init_time = self._get_time()
 		self._save_interval = 50
@@ -79,7 +70,6 @@ class GameRecorder(object):
 
 	def _update_a(self, a):
 		t = self._get_time() - self._init_time
-	  # self._as.record(t, a)
 		with open(self._a_dirc, 'a') as f:
 			f.write('%.3f, %.3f\n'%(t, a.data))
 
@@ -169,13 +159,14 @@ if __name__ == '__main__':
 
 	Ds = rospy.get_param("~Ds", '').split(',')
 	Is = rospy.get_param("~Is", '').split(',')
+	logger_dir = rospy.get_param("~logger_dir", '')
 	# vd = rospy.get_param("~vd", 0.)
 	# vi = rospy.get_param("~vi", 0.)
 	# r = rospy.get_param("~a", 0.)
 	# r_close = rospy.get_param("~r_close", 1.)
 	# k_close = rospy.get_param("~k_close", .9)
 
-	recorder = GameRecorder(Ds=Ds, Is=Is)
+	recorder = GameRecorder(Ds=Ds, Is=Is, logger_dir=logger_dir)
 
 	while not rospy.is_shutdown():
 		recorder.plot_locs()

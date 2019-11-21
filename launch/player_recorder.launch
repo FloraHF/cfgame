@@ -9,6 +9,7 @@
   <arg name="cmd_vel_topic" default="/cmd_vel"/>
   <arg name="cmdVtemp_topic" default="/cmdVtemp"/>
   <arg name="cf_frame" default="/cf" />
+  <arg name="logger_dir" default="res1" />
 
     <!-- add outer-loop controller, hover only for now -->
     <node name="data_recorder" pkg="crazyflie_game" type="player_recorder.py" output="screen">
@@ -18,6 +19,7 @@
         <param name="cmd_vel_topic" value="$(arg cmd_vel_topic)" />
         <param name="cmdVtemp_topic" value="$(arg cmdVtemp_topic)" />
         <param name="cf_frame" value="$(arg cf_frame)" />
+        <param name="logger_dir" value="$(arg logger_dir)" />
     </node>
 
 </launch>
