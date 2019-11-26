@@ -26,21 +26,16 @@ class RAgame(object):
 		self.rate = rospy.Rate(rate)
 		self.states = dict()
 
+		self.param_id = param_file.split('.')[0].split('_')[-1]
 		self.vdes = dict()
 		self.zs = dict()
 		self.x0s = dict()
 		self.xes = dict()
 		self.goal_msgs = dict()
 		self.policy_fns = dict()
-		# self.r = r
 		self.nv = 20
-		# a = a.split('/')
-  #	   self.a = float(a[0]) / float(a[1])
-  #	   self.LB = acos(self.a)
 
 		self.cap_time = .2
-		# self.k_close = k_close
-		# self.r_close = r_close*r
 		self.last_cap = False
 		self.end = False
 		self.time_inrange = 0.
@@ -65,7 +60,7 @@ class RAgame(object):
 		self.play_clients = dict()
 
 		script_dir = os.path.dirname(__file__)
-		with open(os.path.join(script_dir, param_file), 'r') as f:
+		with open(os.path.join(script_dir+'params/', param_file), 'r') as f:
 			lines = f.readlines()
 			for line in lines:
 				if 'x' in line:
@@ -84,7 +79,16 @@ class RAgame(object):
 					self.r_close = float(line.split(',')[-1])*self.r
 				if 'k_close' in line:
 					self.k_close = float(line.split(',')[-1])
-		# print(self.x0s)
+				if 'S' in line:
+					self.S = float(line.split(',')[-1])
+				if 'T' in line:
+					self.T = float(line.split(',')[-1])
+				if 'gmm' in line:
+					self.gmm = float(line.split(',')[-1])		
+				if 'D' in line:
+					self.D = float(line.split(',')[-1])
+				if 'delta' in line:
+					self.delta = float(line.split(',')[-1])
 		self.a = vd/vi
 
 		for i, (D, z) in enumerate(zip(Ds, zDs)):
@@ -99,7 +103,7 @@ class RAgame(object):
 				self.vnorms[role] = []
 				self.vs[role] = np.zeros(2)
 				self.vdes[role] = vd
-				self.policy_fns[role] = load_model(os.path.join(script_dir, 'PolicyFn_'+role+'.h5'))
+				self.policy_fns[role] = load_model(os.path.join(script_dir, 'Policies/PolicyFn_'+role+'.h5'))
 				# self.policy_fns[role] = load_model('PolicyFn_' + role)
 				self.states[role] = None
 
@@ -125,7 +129,7 @@ class RAgame(object):
 				self.vnorms[role] = []
 				self.vs[role] = np.zeros(2)
 				self.vdes[role] = vi
-				self.policy_fns[role] = load_model(os.path.join(script_dir, 'PolicyFn_'+role+'.h5'))
+				self.policy_fns[role] = load_model(os.path.join(script_dir, 'Policies/PolicyFn_'+role+'.h5'))
 				# self.policy_fns[role] = load_model('PolicyFn_' + role)
 				self.states[role] = None
 
@@ -139,21 +143,28 @@ class RAgame(object):
 				self.auto_clients[role] = self.service_client(I, '/cfauto')
 				self.mocap_subs[role] = rospy.Subscriber('/'+I+'/mocap', Mocap, self.mocap_sub_callbacks[role])
 
-		for role in self.players:
-			print(self.goal_msgs[role].pose.position.x, self.goal_msgs[role].pose.position.y)
+		# for role in self.players:
+		# 	print(self.goal_msgs[role].pose.position.x, self.goal_msgs[role].pose.position.y)
 		rospy.Service('alltakeoff', Empty, self.alltakeoff)
 		rospy.Service('allplay', Empty, self.allplay)
 		rospy.Service('allland', Empty, self.allland)
 
 		with open(script_dir+'/'+logger_dir+'/info.csv', 'a') as f:
+			f.write('paramid,'+self.param_id)
 			for role, cf in self.players.items():
 				f.write(role + ',' + cf + '\n')
-				f.write('x'+role+'%.5f, %.5f\n'%(self.x0s[role][0], self.x0s[role][1]))
+				f.write('x'+role+',%.5f, %.5f\n'%(self.x0s[role][0], self.x0s[role][1]))
 			f.write('vd,%.2f'%vd + '\n')
 			f.write('vi,%.2f'%vi + '\n')
 			f.write('rc,%.2f'%self.r + '\n')
-			f.write('r_close,%.2f'%self.r_close + '\n')
-			f.write('k_close,%.2f'%self.k_close + '\n')
+			if vd < vi:
+				f.write('r_close,%.2f'%self.r_close + '\n')
+				f.write('k_close,%.2f'%self.k_close + '\n')	
+				f.write('S,%.10f\n'%self.S)
+				f.write('T,%.10f\n'%self.T)
+				f.write('gmm,%.10f\n'%self.gmm)
+				f.write('D,%.10f\n'%self.D)
+				f.write('delta,%.10f\n'%self.delta)		
 
 	def line_target(self, x):
 		return x[1]
@@ -295,6 +306,7 @@ class RAgame(object):
 		x = np.concatenate((self.xs['D0'], self.xs['I0'], self.xs['D1']))
 		for role, p in self.policy_fns.items():
 			acts[role] = p.predict(x[None])[0]
+		acts['policy'] = 'nn_strategy'
 		return acts
 
 	def f_strategy(self):
@@ -306,6 +318,7 @@ class RAgame(object):
 				acts[role] = phis[int(role[-1])]
 			elif 'I' in role:
 				acts[role] = psis[int(role[-1])]
+		acts['policy'] = 'f_strategy'
 		return acts
 
 	def z_strategy(self):
@@ -326,7 +339,7 @@ class RAgame(object):
 
 		# print('%.2f, %.2f, %.2f'%(phi_1*180/pi, phi_2*180/pi, psi*180/pi))
 
-		return {'D0': phi_1, 'D1': phi_2, 'I0': psi}
+		return {'D0': phi_1, 'D1': phi_2, 'I0': psi, 'policy': 'z_strategy'}
 
 	def h_strategy(self):
 		D1_I, D2_I, D1_D2 = self.get_vecs()
@@ -359,7 +372,7 @@ class RAgame(object):
 		phi_2 += base['D1']
 		psi += base['I0']
 
-		return {'D0': phi_1, 'D1': phi_2, 'I0': psi}
+		return {'D0': phi_1, 'D1': phi_2, 'I0': psi, 'policy': 'h_strategy'}
 
 	def i_strategy(self):
 		
@@ -380,15 +393,16 @@ class RAgame(object):
 		phi_1 = -(pi - (tht + psi) - A) + base['D0']
 		phi_2 = pi/2 - a2 + base['D1']
 		psi = -(pi/2 - LB + a2) + base['I0']
-		return {'D0': phi_1, 'D1': phi_2, 'I0': psi}
+		return {'D0': phi_1, 'D1': phi_2, 'I0': psi,'policy': 'i_strategy'}
 
 	def m_strategy(self):
 		D1_I, D2_I, D1_D2 = self.get_vecs()
 		x, y, z = self.get_xyz(D1_I, D2_I, D1_D2)
 		if x < 0.1:
-			return self.h_strategy()
+			act = self.h_strategy()
 		else:
-			return self.i_strategy()		
+			act = self.i_strategy()
+		return act
 
 	def c_strategy(self, dstrategy=m_strategy, istrategy=m_strategy):
 		D0_I0, D1_I0, D0_D1 = self.get_vecs()
@@ -418,9 +432,9 @@ class RAgame(object):
 			phi_1 = self.k_close*phi_1 + base['D0']
 			self.policy_pubs['D0'].publish('D0 close')
 
-			phi_2 = dstrategy(self)['D1']
-			print(dstrategy.__name__)
-			self.policy_pubs['D1'].publish(dstrategy.__name__)
+			act = dstrategy(self)
+			phi_2 = act['D1']
+			self.policy_pubs['D1'].publish(act['policy'])
 
 			if self.vdes['I0'] > self.vnorms['D0'][-1]:
 				psi = - abs(acos(self.vnorms['D0'][-1] * cos(phi_1) / self.vdes['I0']))
@@ -435,8 +449,9 @@ class RAgame(object):
 		elif np.linalg.norm(D1_I0) < self.r_close:
 			vD2 = np.concatenate((self.vs['D1'], [0]))
 			phi_2 = atan2(np.cross(D1_I0, vD2)[-1], np.dot(D1_I0, vD2))
-			phi_1 = dstrategy(self)['D0']
-			self.policy_pubs['D0'].publish(dstrategy.__name__)
+			act = dstrategy(self)
+			phi_1 = act['D0']
+			self.policy_pubs['D0'].publish(act['policy'])
 
 			phi_2 = self.k_close * phi_2 + base['D1']
 			self.policy_pubs['D1'].publish('D1 close')
@@ -456,9 +471,9 @@ class RAgame(object):
 			iact = istrategy(self)
 			for role in self.players:
 				if 'D' in role:
-					self.policy_pubs[role].publish(dstrategy.__name__)
+					self.policy_pubs[role].publish(dact['policy'])
 				if 'I' in role:
-					self.policy_pubs[role].publish(istrategy.__name__)
+					self.policy_pubs[role].publish(iact['policy'])
 			return {'D0': dact['D0'], 'D1': dact['D1'], 'I0': iact['I0']}
 
 	def hover(self, role, x):
@@ -475,11 +490,13 @@ class RAgame(object):
 				dact = dstrategy(self)
 				iact = istrategy(self)
 				actions = {'D0': dact['D0'], 'D1': dact['D1'], 'I0': iact['I0']}
+				for role in self.players:
+					if 'D' in role:
+						self.policy_pubs[role].publish(dact['policy'])
+					elif 'I' in role:
+						self.policy_pubs[role].publish(iact['policy'])
+
 			for role in self.players:
-				if 'D' in role:
-					self.policy_pubs[role].publish(dstrategy.__name__)
-				elif 'I' in role:
-					self.policy_pubs[role].publish(istrategy.__name__)
 				vx = self.vdes[role] * cos(actions[role])
 				vy = self.vdes[role] * sin(actions[role])
 				cmdV = Twist()
