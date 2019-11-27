@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+# import shutil
 import numpy as np
 from math import pi, cos, sin, sqrt
 import rospy
@@ -31,6 +32,11 @@ class GameRecorder(object):
 		script_dir = os.path.dirname(__file__)
 		self._results_dir = os.path.join(script_dir, logger_dir + '/')
 		self._a_dirc = os.path.join(self._results_dir, 'a.csv')
+		if os.path.exists(self._a_dirc):
+			os.remove(self._a_dirc)
+
+		# if os.path.exists(self._results_dir):
+		# 	shutil.rmtree(self._results_dir)
 		if not os.path.isdir(self._results_dir):
 			os.makedirs(self._results_dir)
 

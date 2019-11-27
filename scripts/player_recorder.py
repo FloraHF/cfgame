@@ -68,8 +68,21 @@ class PlayerRecorder(object):
 		self._cmdVtemp_dirc = os.path.join(self._data_dir, 'cmdVtemp.csv')
 		self._euler_dirc = os.path.join(self._data_dir, 'euler.csv')
 		self._cmd_vel_dirc = os.path.join(self._data_dir, 'cmd_vel.csv')
-		# self._a_dirc = os.path.join(self._data_dir, 'a.csv')
 		self._policy_dirc = os.path.join(self._data_dir, 'policy.csv')
+		if os.path.exists(self._location_dirc):
+			os.remove(self._location_dirc)
+		if os.path.exists(self._goal_dirc):
+			os.remove(self._goal_dirc)
+		if os.path.exists(self._velocity_dirc):
+			os.remove(self._velocity_dirc)
+		if os.path.exists(self._cmdVtemp_dirc):
+			os.remove(self._cmdVtemp_dirc)
+		if os.path.exists(self._euler_dirc):
+			os.remove(self._euler_dirc)
+		if os.path.exists(self._cmd_vel_dirc):
+			os.remove(self._cmd_vel_dirc)
+		if os.path.exists(self._policy_dirc):
+			os.remove(self._policy_dirc)
 		# self._heading_act_dirc = os.path.join(self._data_dir, 'actual_heading.csv')
 		# self._heading_rel_dirc = os.path.join(self._data_dir, 'relative_heading.csv')
 		# self._heading_anl_dirc = os.path.join(self._data_dir, 'analytic_heading.csv')

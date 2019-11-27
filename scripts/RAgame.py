@@ -60,7 +60,7 @@ class RAgame(object):
 		self.play_clients = dict()
 
 		script_dir = os.path.dirname(__file__)
-		with open(os.path.join(script_dir+'params/', param_file), 'r') as f:
+		with open(os.path.join(script_dir+'/params/', param_file), 'r') as f:
 			lines = f.readlines()
 			for line in lines:
 				if 'x' in line:
@@ -149,8 +149,12 @@ class RAgame(object):
 		rospy.Service('allplay', Empty, self.allplay)
 		rospy.Service('allland', Empty, self.allland)
 
-		with open(script_dir+'/'+logger_dir+'/info.csv', 'a') as f:
-			f.write('paramid,'+self.param_id)
+		inffname = script_dir+'/'+logger_dir+'/info.csv'
+		if os.path.exists(inffname):
+			os.remove(inffname)
+
+		with open(inffname, 'a') as f:
+			f.write('paramid,'+self.param_id+'\n')
 			for role, cf in self.players.items():
 				f.write(role + ',' + cf + '\n')
 				f.write('x'+role+',%.5f, %.5f\n'%(self.x0s[role][0], self.x0s[role][1]))
@@ -207,16 +211,16 @@ class RAgame(object):
 	def getD1(self, data):
 		self.xs['D1'] = np.array([data.position[0], data.position[1]])
 		self.vs['D1'] = np.array([data.velocity[0], data.velocity[1]])
-		if len(self.vnorms['D0']) > self.nv:
-			self.vnorms['D0'].pop(0)
-		self.vnorms['D0'].append(sqrt(data.velocity[0]**2 + data.velocity[1]**2))		
+		if len(self.vnorms['D1']) > self.nv:
+			self.vnorms['D1'].pop(0)
+		self.vnorms['D1'].append(sqrt(data.velocity[0]**2 + data.velocity[1]**2))		
 
 	def getI0(self, data):
 		self.xs['I0'] = np.array([data.position[0], data.position[1]])
 		self.vs['I0'] = np.array([data.velocity[0], data.velocity[1]])
-		if len(self.vnorms['D0']) > self.nv:
-			self.vnorms['D0'].pop(0)
-		self.vnorms['D0'].append(sqrt(data.velocity[0]**2 + data.velocity[1]**2))		  
+		if len(self.vnorms['I0']) > self.nv:
+			self.vnorms['I0'].pop(0)
+		self.vnorms['I0'].append(sqrt(data.velocity[0]**2 + data.velocity[1]**2))		  
 
 	def is_capture(self):
 		d0 = np.linalg.norm(self.xs['D0'] - self.xs['I0'])
@@ -404,9 +408,11 @@ class RAgame(object):
 			act = self.i_strategy()
 		return act
 
-	def c_strategy(self, dstrategy=m_strategy, istrategy=m_strategy):
+	def c_strategy(self, dstrategy=nn_strategy, istrategy=nn_strategy):
 		D0_I0, D1_I0, D0_D1 = self.get_vecs()
 		base = self.get_base(D0_I0, D1_I0, D0_D1)
+		print(self.r_close)
+		# print(self.vnorms)
 		
 		#=============== both defenders are close ===============#
 		if np.linalg.norm(D0_I0) < self.r_close and np.linalg.norm(D1_I0) < self.r_close:  # in both range
@@ -426,10 +432,11 @@ class RAgame(object):
 
 		#=============== only D1 is close ===============#
 		elif np.linalg.norm(D0_I0) < self.r_close:  # in D1's range
+			# print(self.r_close)
 			# print(self.vs['D0'])
 			vD1 = np.concatenate((self.vs['D0'], [0]))
 			phi_1 = atan2(np.cross(D0_I0, vD1)[-1], np.dot(D0_I0, vD1))
-			phi_1 = self.k_close*phi_1 + base['D0']
+			phi_1 = self.k_close*phi_1
 			self.policy_pubs['D0'].publish('D0 close')
 
 			act = dstrategy(self)
@@ -443,7 +450,7 @@ class RAgame(object):
 			psi = pi - self.get_theta(D0_I0, D1_I0, D0_D1) + psi + base['I0']
 			self.policy_pubs['I0'].publish('D0 close')
 
-			return {'D0': phi_1, 'D1': phi_2, 'I0': psi}
+			return {'D0': phi_1+base['D0'], 'D1': phi_2, 'I0': psi}
 
 		#=============== only D2 is close ===============#
 		elif np.linalg.norm(D1_I0) < self.r_close:
@@ -453,7 +460,7 @@ class RAgame(object):
 			phi_1 = act['D0']
 			self.policy_pubs['D0'].publish(act['policy'])
 
-			phi_2 = self.k_close * phi_2 + base['D1']
+			phi_2 = self.k_close * phi_2
 			self.policy_pubs['D1'].publish('D1 close')
 
 			if self.vdes['I0'] > self.vnorms['D1'][-1]:
@@ -463,7 +470,7 @@ class RAgame(object):
 			psi = psi - pi + base['I0']
 			self.policy_pubs['D1'].publish('D1 close')
 
-			return {'D0': phi_1, 'D1': phi_2, 'I0': psi}
+			return {'D0': phi_1, 'D1': phi_2+base['D1'], 'I0': psi}
 
 		#============== no defender is close =============#
 		else:
@@ -480,7 +487,7 @@ class RAgame(object):
 		self.updateGoal(role, x)
 		self.goal_pubs[role].publish(self.goal_msgs[role])
 
-	def game(self, dt, dstrategy=m_strategy, istrategy=nn_strategy, close_adjust=False):
+	def game(self, dt, dstrategy=nn_strategy, istrategy=nn_strategy, close_adjust=True):
 
 		if not self.end:
 			# print('Playing')
