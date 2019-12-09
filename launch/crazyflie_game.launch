@@ -13,6 +13,8 @@
   <arg name="port" default="3883" />
   <arg name="param_file" default="traj_param_2.csv" />
   <arg name="res_file" default="res21" />
+  <arg name="dstrategy" default="f" />
+  <arg name="istrategy" default="f" />
 
   <arg name="uri_D1" default="radio://0/84/1M/E7E7E7E703" />
   <arg name="frame_D1" default="cf3" />
@@ -71,6 +73,8 @@
       <param name="Is" value="$(arg frame_I)" />
       <param name="zDs" value="$(arg z_D1),$(arg z_D2)" />
       <param name="zIs" value="$(arg z_I)" />
+      <param name="dstrategy" value="$(arg dstrategy)" />
+      <param name="istrategy" value="$(arg istrategy)" />
       <param name="param_file" value="$(arg param_file)" />
       <param name="logger_dir" value="$(arg res_file)" />
   </node>

@@ -15,16 +15,30 @@ from std_msgs.msg import String, Float32
 from geometry_msgs.msg import PoseStamped, Twist
 
 from optitrack_broadcast.msg import Mocap
-from strategy_fastD import deep_target_strategy
+# from strategy_fastD import deep_target_strategy
+
+from geometries import LineTarget, DominantRegion
+from strategyWrapper import Iwin_wrapper, nullWrapper, closeWrapper, mixWrapper
 
 class RAgame(object):
 
 	def __init__(self, zDs, zIs, rate=10, param_file='',
 				 Ds='', Is='',
+				 dstrategy=None, istrategy=None,
 				 logger_dir='res1'):
 
 		self.rate = rospy.Rate(rate)
 		self.states = dict()
+
+		self.target = LineTarget()
+		self.policy_dict = {'pt': self.pt_strategy,
+							'pp': self.pp_strategy,
+							'nn': self.nn_strategy,
+							'w': self.w_strategy,
+							'h':  self.h_strategy,}
+		self.dstrategy = dstrategy
+		self.istrategy = istrategy							
+		self.last_act = dict()
 
 		self.param_id = param_file.split('.')[0].split('_')[-1]
 		self.vdes = dict()
@@ -90,6 +104,12 @@ class RAgame(object):
 				if 'delta' in line:
 					self.delta = float(line.split(',')[-1])
 		self.a = vd/vi
+		if self.a >= 1:
+			self.policy_dict['f'] = self.f_strategy_fastD
+			self.strategy = mixWrapper(self.policy_dict[self.dstrategy], self.policy_dict[self.istrategy])
+		else:
+			self.policy_dict['f'] = self.f_strategy_slowD
+			self.strategy = closeWrapper(self.policy_dict[self.dstrategy], self.policy_dict[self.istrategy])
 
 		for i, (D, z) in enumerate(zip(Ds, zDs)):
 			if D != '':
@@ -99,6 +119,7 @@ class RAgame(object):
 				self.goal_msgs[role] = PoseStamped()
 				# print(D, role)
 				self.updateGoal(role, goal=self.x0s[role], init=True)
+				self.last_act['p_'+role] = ''
 
 				self.vnorms[role] = []
 				self.vs[role] = np.zeros(2)
@@ -125,6 +146,7 @@ class RAgame(object):
 				self.zs[role] = float(z)
 				self.goal_msgs[role] = PoseStamped()
 				self.updateGoal(role, goal=self.x0s[role], init=True)
+				self.last_act['p_'+role] = ''
 
 				self.vnorms[role] = []
 				self.vs[role] = np.zeros(2)
@@ -162,7 +184,7 @@ class RAgame(object):
 			f.write('vi,%.2f'%vi + '\n')
 			f.write('rc,%.2f'%self.r + '\n')
 			if vd < vi:
-				f.write('r_close,%.2f'%self.r_close + '\n')
+				f.write('r_close,%.2f'%self.r_close/self.r + '\n')
 				f.write('k_close,%.2f'%self.k_close + '\n')	
 				f.write('S,%.10f\n'%self.S)
 				f.write('T,%.10f\n'%self.T)
@@ -170,8 +192,8 @@ class RAgame(object):
 				f.write('D,%.10f\n'%self.D)
 				f.write('delta,%.10f\n'%self.delta)		
 
-	def line_target(self, x):
-		return x[1]
+	# def line_target(self, x):
+	# 	return x[1]
 
 	def service_client(self, cf, name):
 		srv_name = '/' + cf + name
@@ -305,46 +327,218 @@ class RAgame(object):
 		a2 = asin(self.r/d2)
 		return d1, d2, a1, a2
 
-	def nn_strategy(self):
-		acts = dict()
-		x = np.concatenate((self.xs['D0'], self.xs['I0'], self.xs['D1']))
-		for role, p in self.policy_fns.items():
-			acts[role] = p.predict(x[None])[0]
-		acts['policy'] = 'nn_strategy'
-		return acts
+	def dr_intersection(self):
+		D1_I, D2_I, D1_D2 = self.get_vecs()
+		x, y, z = self.get_xyz(D1_I, D2_I, D1_D2)
 
-	def f_strategy(self):
-		psis, phis = deep_target_strategy(self.xs['I0'], (self.xs['D0'], self.xs['D1']), self.line_target, self.a, self.r)
-		# print(psis, phis)
-		acts = dict()
-		for role, p in self.players.items():
-			if 'D' in role:
-				acts[role] = phis[int(role[-1])]
-			elif 'I' in role:
-				acts[role] = psis[int(role[-1])]
-		acts['policy'] = 'f_strategy'
-		return acts
+		A = -self.a**2 + 1
+		B =  2*self.a**2*x 
+		C = -self.a**2*(x**2 + y**2) + z**2 + self.r**2
+		a4, a3, a2, a1, a0 = A**2, 2*A*B, B**2+2*A*C-4*self.r**2, 2*B*C, C**2-4*self.r**2*z**2
+		b, c, d, e = a3/a4, a2/a4, a1/a4, a0/a4
+		p = (8*c - 3*b**2)/8
+		q = (b**3 - 4*b*c + 8*d)/8
+		r = (-3*b**4 + 256*e - 64*b*d + 16*b**2*c)/256
 
-	def z_strategy(self):
+		cubic = np.roots([8, 8*p, 2*p**2 - 8*r, -q**2])
+		for root in cubic:
+			if root.imag == 0 and root.real > 0:
+				m = root 
+				break
+		# m = cubic[1]
+		# print('m=%.5f'%m)
+		# for root in cubic:
+		# 	print(root)
+		# print('\n')				
+
+		y1 =  cm.sqrt(2*m)/2 - cm.sqrt(-(2*p + 2*m + cm.sqrt(2)*q/cm.sqrt(m)))/2 - b/4
+		# y2 =  cm.sqrt(2*m)/2 + cm.sqrt(-(2*p + 2*m + cm.sqrt(2)*q/cm.sqrt(m)))/2 - b/4
+		# y3 = -cm.sqrt(2*m)/2 - cm.sqrt(-(2*p + 2*m - cm.sqrt(2)*q/cm.sqrt(m)))/2 - b/4
+		# y4 = -cm.sqrt(2*m)/2 + cm.sqrt(-(2*p + 2*m - cm.sqrt(2)*q/cm.sqrt(m)))/2 - b/4
+
+		return np.array([y1.real, 0])
+
+	def projection_on_target(self, x):
+		def dist(xt):
+			return sqrt((x[0]-xt[0])**2 + (x[1]-xt[1])**2)
+		in_target = NonlinearConstraint(self.target.level, -np.inf, 0)
+		sol = minimize(dist, np.array([0, 0]), constraints=(in_target,))
+		return sol.x
+
+	def pt_strategy(self):
+		xt = self.projection_on_target(self.xs['I0'])
+		P = np.concatenate((xt, [0]))
+		I_P = np.concatenate((xt - self.xs['I0'], [0]))
+		D0_P = np.concatenate((xt - self.xs['D0'], [0]))
+		D1_P = np.concatenate((xt - self.xs['D1'], [0]))
+
+		xaxis = np.array([1, 0, 0])
+		psi = atan2(np.cross(xaxis, I_P)[-1], np.dot(xaxis, I_P))
+		phi_1 = atan2(np.cross(xaxis, D0_P)[-1], np.dot(xaxis, D0_P))
+		phi_2 = atan2(np.cross(xaxis, D1_P)[-1], np.dot(xaxis, D1_P))
+
+		actions = {'D0': phi_1, 'D1': phi_2, 'I0': psi}
+		actions['p_'+'I0'] = 'pt_strategy'
+		actions['p_'+'D0'] = 'pt_strategy'
+		actions['p_'+'D1'] = 'pt_strategy'
+
+		return actions
+
+	def pp_strategy(self):
+		xt = self.projection_on_target(self.xs['I0'])
+		P = np.concatenate((xt, [0]))
+		I_P = np.concatenate((xt - self.xs['I0'], [0]))
+		D0_I = np.concatenate((xs['I0'] - self.xs['D0'], [0]))
+		D1_I = np.concatenate((xs['I0'] - self.xs['D1'], [0]))
+
+		xaxis = np.array([1, 0, 0])
+		psi = atan2(np.cross(xaxis, I_P)[-1], np.dot(xaxis, I_P))
+		phi_1 = atan2(np.cross(xaxis, D0_I)[-1], np.dot(xaxis, D0_I))
+		phi_2 = atan2(np.cross(xaxis, D1_I)[-1], np.dot(xaxis, D1_I))
+
+		actions = {'D0': phi_1, 'D1': phi_2, 'I0': psi}
+		actions['p_'+'I0'] = 'pt_strategy'
+		actions['p_'+'D0'] = 'pp_strategy'
+		actions['p_'+'D1'] = 'pp_strategy'
+
+		return actions
+
+	def w_strategy(self, xs):
 		D1_I, D2_I, D1_D2 = self.get_vecs()
 		base = self.get_base(D1_I, D2_I, D1_D2)
-		d1, d2 = self.get_d(D1_I, D2_I, D1_D2)
+		d1, d2, a1, a2 = self.get_alpha(D1_I, D2_I, D1_D2)
 		tht = self.get_theta(D1_I, D2_I, D1_D2)
-		phi_1 = -pi / 2
-		phi_2 = pi / 2
-		cpsi = d2 * sin(tht)
-		spsi = -(d1 - d2 * cos(tht))
-		psi = atan2(spsi, cpsi)
-		# print('%.2f, %.2f, %.2f'%(phi_1*180/pi, phi_2*180/pi, psi*180/pi))
+
+		phi_1 = -(pi/2 - a1)
+		phi_2 =  (pi/2 - a2)
+		delta = (tht - (a1 + a2) - pi + 2*self.gmm)/2
+		psi_min = -(tht - (a1 + pi/2 - self.gmm))
+		psi_max = -(a2 + pi/2 - self.gmm)
+
+		I_T = np.concatenate((self.projection_on_target(xs['I0']) - xs['I0'], [0]))
+		angT = atan2(np.cross(-D2_I, I_T)[-1], np.dot(-D2_I, I_T))
+		psi = np.clip(angT, psi_min, psi_max)
+		# print(angT, psi_min, psi_max, psi)
 
 		phi_1 += base['D0']
 		phi_2 += base['D1']
 		psi += base['I0']
 
-		# print('%.2f, %.2f, %.2f'%(phi_1*180/pi, phi_2*180/pi, psi*180/pi))
+		acts = {'D0': phi_1, 'D1': phi_2, 'I0': psi}
 
-		return {'D0': phi_1, 'D1': phi_2, 'I0': psi, 'policy': 'z_strategy'}
+		for role in self.players:
+			acts['p_'+role] = 'w_strategy'
 
+		return acts
+
+	@Iwin_wrapper
+	def nn_strategy(self, xs):
+		acts = dict()
+		x = np.concatenate((xs['D0'], xs['I0'], xs['D1']))
+		for role, p in self.policies.items():
+			acts[role] = p.predict(x[None])[0]
+		# print('nn')
+		return acts
+
+	# def nn_strategy(self):
+	# 	acts = dict()
+	# 	x = np.concatenate((self.xs['D0'], self.xs['I0'], self.xs['D1']))
+	# 	for role, p in self.policy_fns.items():
+	# 		acts[role] = p.predict(x[None])[0]
+	# 	acts['policy'] = 'nn_strategy'
+	# 	return acts
+
+	# def f_strategy(self):
+	# 	psis, phis = deep_target_strategy(self.xs['I0'], (self.xs['D0'], self.xs['D1']), self.line_target, self.a, self.r)
+	# 	# print(psis, phis)
+	# 	acts = dict()
+	# 	for role, p in self.players.items():
+	# 		if 'D' in role:
+	# 			acts[role] = phis[int(role[-1])]
+	# 		elif 'I' in role:
+	# 			acts[role] = psis[int(role[-1])]
+	# 	acts['policy'] = 'f_strategy'
+	# 	return acts
+
+	def f_strategy_fastD(self):
+		dr = DominantRegion(self.r, self.a, self.xs['I0'], (self.xs['D0'], self.xs['D1']))
+		xt = self.target.deepest_point_in_dr(dr, target=self.target)
+		# xt = self.deepest_in_target(xs)
+
+		xi, xds = xs['I0'], (xs['D0'], xs['D1'])
+
+		IT = np.concatenate((xt - xi, np.zeros((1,))))
+		DTs = []
+		for xd in xds:
+			DT = np.concatenate((xt - xd, np.zeros(1,)))
+			DTs.append(DT)
+		xaxis = np.array([1, 0, 0])
+		psis = [atan2(np.cross(xaxis, IT)[-1], np.dot(xaxis, IT))]
+		phis = []
+		for DT in DTs:
+			phi = atan2(np.cross(xaxis, DT)[-1], np.dot(xaxis, DT))
+			phis.append(phi)
+
+		acts = dict()
+		for role, p in self.players.items():
+			if 'D' in role:
+				acts[role] = phis[int(role[-1])]
+				acts['p_'+role] = 'f_strategy'
+			elif 'I' in role:
+				acts[role] = psis[int(role[-1])]
+				acts['p_'+role] = 'f_strategy'
+		return acts
+
+	@Iwin_wrapper
+	def f_strategy_slowD(self):
+		D1_I, D2_I, D1_D2 = self.get_vecs()
+		base = self.get_base(D1_I, D2_I, D1_D2)
+		x, y, z = self.get_xyz(D1_I, D2_I, D1_D2)
+		xt = self.dr_intersection()
+		# xt = self.deepest_in_target(xs)
+
+		P = np.concatenate((xt, [0]))
+		D1_ = np.array([0, -z, 0])
+		D2_ = np.array([0,  z, 0])
+		I_ = np.array([x, y, 0])
+		D1_P = P - D1_
+		D2_P = P - D2_
+		I_P = P - I_
+		D1_I_ = I_ - D1_
+		D2_I_ = I_ - D2_
+		D1_D2_ = D2_ - D1_
+
+		phi_1 = atan2(np.cross(D1_I_, D1_P)[-1], np.dot(D1_I_, D1_P))
+		phi_2 = atan2(np.cross(D2_I_, D2_P)[-1], np.dot(D2_I_, D2_P))
+		psi = atan2(np.cross(-D2_I_, I_P)[-1], np.dot(-D2_I_, I_P))
+		
+		phi_1 += base['D0']
+		phi_2 += base['D1']
+		psi += base['I0']
+
+		return {'D0': phi_1, 'D1': phi_2, 'I0': psi}
+
+	# def z_strategy(self):
+	# 	D1_I, D2_I, D1_D2 = self.get_vecs()
+	# 	base = self.get_base(D1_I, D2_I, D1_D2)
+	# 	d1, d2 = self.get_d(D1_I, D2_I, D1_D2)
+	# 	tht = self.get_theta(D1_I, D2_I, D1_D2)
+	# 	phi_1 = -pi / 2
+	# 	phi_2 = pi / 2
+	# 	cpsi = d2 * sin(tht)
+	# 	spsi = -(d1 - d2 * cos(tht))
+	# 	psi = atan2(spsi, cpsi)
+	# 	# print('%.2f, %.2f, %.2f'%(phi_1*180/pi, phi_2*180/pi, psi*180/pi))
+
+	# 	phi_1 += base['D0']
+	# 	phi_2 += base['D1']
+	# 	psi += base['I0']
+
+	# 	# print('%.2f, %.2f, %.2f'%(phi_1*180/pi, phi_2*180/pi, psi*180/pi))
+
+	# 	return {'D0': phi_1, 'D1': phi_2, 'I0': psi, 'policy': 'z_strategy'}
+
+	@Iwin_wrapper
 	def h_strategy(self):
 		D1_I, D2_I, D1_D2 = self.get_vecs()
 		base = self.get_base(D1_I, D2_I, D1_D2)
@@ -378,110 +572,110 @@ class RAgame(object):
 
 		return {'D0': phi_1, 'D1': phi_2, 'I0': psi, 'policy': 'h_strategy'}
 
-	def i_strategy(self):
+	# def i_strategy(self):
 		
-		D1_I, D2_I, D1_D2 = self.get_vecs()
-		base = self.get_base(D1_I, D2_I, D1_D2)
-		d1, d2, a1, a2 = self.get_alpha(D1_I, D2_I, D1_D2)
-		tht = self.get_theta(D1_I, D2_I, D1_D2)
+	# 	D1_I, D2_I, D1_D2 = self.get_vecs()
+	# 	base = self.get_base(D1_I, D2_I, D1_D2)
+	# 	d1, d2, a1, a2 = self.get_alpha(D1_I, D2_I, D1_D2)
+	# 	tht = self.get_theta(D1_I, D2_I, D1_D2)
 		
-		LB = acos(self.a)
+	# 	LB = acos(self.a)
 		
-		phi_2 = pi/2 - a2 + 0.01
-		psi = -(pi/2 - LB + a2)
-		d = d2*(sin(phi_2)/sin(LB))
-		l1 = sqrt(d1**2 + d**2 - 2*d1*d*cos(tht + psi))
-		cA = (d**2 + l1**2 - d1**2)/(2*d*l1)
-		sA = sin(tht + psi)*(d1/l1)
-		A = atan2(sA, cA)
-		phi_1 = -(pi - (tht + psi) - A) + base['D0']
-		phi_2 = pi/2 - a2 + base['D1']
-		psi = -(pi/2 - LB + a2) + base['I0']
-		return {'D0': phi_1, 'D1': phi_2, 'I0': psi,'policy': 'i_strategy'}
+	# 	phi_2 = pi/2 - a2 + 0.01
+	# 	psi = -(pi/2 - LB + a2)
+	# 	d = d2*(sin(phi_2)/sin(LB))
+	# 	l1 = sqrt(d1**2 + d**2 - 2*d1*d*cos(tht + psi))
+	# 	cA = (d**2 + l1**2 - d1**2)/(2*d*l1)
+	# 	sA = sin(tht + psi)*(d1/l1)
+	# 	A = atan2(sA, cA)
+	# 	phi_1 = -(pi - (tht + psi) - A) + base['D0']
+	# 	phi_2 = pi/2 - a2 + base['D1']
+	# 	psi = -(pi/2 - LB + a2) + base['I0']
+	# 	return {'D0': phi_1, 'D1': phi_2, 'I0': psi,'policy': 'i_strategy'}
 
-	def m_strategy(self):
-		D1_I, D2_I, D1_D2 = self.get_vecs()
-		x, y, z = self.get_xyz(D1_I, D2_I, D1_D2)
-		if x < 0.1:
-			act = self.h_strategy()
-		else:
-			act = self.i_strategy()
-		return act
+	# def m_strategy(self):
+	# 	D1_I, D2_I, D1_D2 = self.get_vecs()
+	# 	x, y, z = self.get_xyz(D1_I, D2_I, D1_D2)
+	# 	if x < 0.1:
+	# 		act = self.h_strategy()
+	# 	else:
+	# 		act = self.i_strategy()
+	# 	return act
 
-	def c_strategy(self, dstrategy=nn_strategy, istrategy=nn_strategy):
-		D0_I0, D1_I0, D0_D1 = self.get_vecs()
-		base = self.get_base(D0_I0, D1_I0, D0_D1)
-		print(self.r_close)
-		# print(self.vnorms)
+	# def c_strategy(self, dstrategy=nn_strategy, istrategy=nn_strategy):
+	# 	D0_I0, D1_I0, D0_D1 = self.get_vecs()
+	# 	base = self.get_base(D0_I0, D1_I0, D0_D1)
+	# 	print(self.r_close)
+	# 	# print(self.vnorms)
 		
-		#=============== both defenders are close ===============#
-		if np.linalg.norm(D0_I0) < self.r_close and np.linalg.norm(D1_I0) < self.r_close:  # in both range
-			for role in self.players:
-				self.policy_pubs[role].publish('both close')
-			vD1 = np.concatenate((self.vs['D0'], [0]))
-			phi_1 = atan2(np.cross(D0_I0, vD1)[-1], np.dot(D0_I0, vD1))
-			phi_1 = self.k_close*phi_1 + base['D0']
+	# 	#=============== both defenders are close ===============#
+	# 	if np.linalg.norm(D0_I0) < self.r_close and np.linalg.norm(D1_I0) < self.r_close:  # in both range
+	# 		for role in self.players:
+	# 			self.policy_pubs[role].publish('both close')
+	# 		vD1 = np.concatenate((self.vs['D0'], [0]))
+	# 		phi_1 = atan2(np.cross(D0_I0, vD1)[-1], np.dot(D0_I0, vD1))
+	# 		phi_1 = self.k_close*phi_1 + base['D0']
 
-			vD2 = np.concatenate((self.vs['D1'], [0]))
-			phi_2 = atan2(np.cross(D1_I0, vD2)[-1], np.dot(D1_I0, vD2))
-			phi_2 = self.k_close*phi_2 + base['D1']		 
+	# 		vD2 = np.concatenate((self.vs['D1'], [0]))
+	# 		phi_2 = atan2(np.cross(D1_I0, vD2)[-1], np.dot(D1_I0, vD2))
+	# 		phi_2 = self.k_close*phi_2 + base['D1']		 
 			
-			psi = -self.get_theta(D0_I0, D1_I0, D0_D1)/2 + base['I0']
+	# 		psi = -self.get_theta(D0_I0, D1_I0, D0_D1)/2 + base['I0']
 
-			return {'D0': phi_1, 'D1': phi_2, 'I0': psi}
+	# 		return {'D0': phi_1, 'D1': phi_2, 'I0': psi}
 
-		#=============== only D1 is close ===============#
-		elif np.linalg.norm(D0_I0) < self.r_close:  # in D1's range
-			# print(self.r_close)
-			# print(self.vs['D0'])
-			vD1 = np.concatenate((self.vs['D0'], [0]))
-			phi_1 = atan2(np.cross(D0_I0, vD1)[-1], np.dot(D0_I0, vD1))
-			phi_1 = self.k_close*phi_1
-			self.policy_pubs['D0'].publish('D0 close')
+	# 	#=============== only D1 is close ===============#
+	# 	elif np.linalg.norm(D0_I0) < self.r_close:  # in D1's range
+	# 		# print(self.r_close)
+	# 		# print(self.vs['D0'])
+	# 		vD1 = np.concatenate((self.vs['D0'], [0]))
+	# 		phi_1 = atan2(np.cross(D0_I0, vD1)[-1], np.dot(D0_I0, vD1))
+	# 		phi_1 = self.k_close*phi_1
+	# 		self.policy_pubs['D0'].publish('D0 close')
 
-			act = dstrategy(self)
-			phi_2 = act['D1']
-			self.policy_pubs['D1'].publish(act['policy'])
+	# 		act = dstrategy(self)
+	# 		phi_2 = act['D1']
+	# 		self.policy_pubs['D1'].publish(act['policy'])
 
-			if self.vdes['I0'] > self.vnorms['D0'][-1]:
-				psi = - abs(acos(self.vnorms['D0'][-1] * cos(phi_1) / self.vdes['I0']))
-			else:
-				psi = - abs(phi_1)
-			psi = pi - self.get_theta(D0_I0, D1_I0, D0_D1) + psi + base['I0']
-			self.policy_pubs['I0'].publish('D0 close')
+	# 		if self.vdes['I0'] > self.vnorms['D0'][-1]:
+	# 			psi = - abs(acos(self.vnorms['D0'][-1] * cos(phi_1) / self.vdes['I0']))
+	# 		else:
+	# 			psi = - abs(phi_1)
+	# 		psi = pi - self.get_theta(D0_I0, D1_I0, D0_D1) + psi + base['I0']
+	# 		self.policy_pubs['I0'].publish('D0 close')
 
-			return {'D0': phi_1+base['D0'], 'D1': phi_2, 'I0': psi}
+	# 		return {'D0': phi_1+base['D0'], 'D1': phi_2, 'I0': psi}
 
-		#=============== only D2 is close ===============#
-		elif np.linalg.norm(D1_I0) < self.r_close:
-			vD2 = np.concatenate((self.vs['D1'], [0]))
-			phi_2 = atan2(np.cross(D1_I0, vD2)[-1], np.dot(D1_I0, vD2))
-			act = dstrategy(self)
-			phi_1 = act['D0']
-			self.policy_pubs['D0'].publish(act['policy'])
+	# 	#=============== only D2 is close ===============#
+	# 	elif np.linalg.norm(D1_I0) < self.r_close:
+	# 		vD2 = np.concatenate((self.vs['D1'], [0]))
+	# 		phi_2 = atan2(np.cross(D1_I0, vD2)[-1], np.dot(D1_I0, vD2))
+	# 		act = dstrategy(self)
+	# 		phi_1 = act['D0']
+	# 		self.policy_pubs['D0'].publish(act['policy'])
 
-			phi_2 = self.k_close * phi_2
-			self.policy_pubs['D1'].publish('D1 close')
+	# 		phi_2 = self.k_close * phi_2
+	# 		self.policy_pubs['D1'].publish('D1 close')
 
-			if self.vdes['I0'] > self.vnorms['D1'][-1]:
-				psi = abs(acos(self.vnorms['D1'][-1] * cos(phi_2) / self.vdes['I0']))
-			else:
-				psi = abs(phi_2)
-			psi = psi - pi + base['I0']
-			self.policy_pubs['D1'].publish('D1 close')
+	# 		if self.vdes['I0'] > self.vnorms['D1'][-1]:
+	# 			psi = abs(acos(self.vnorms['D1'][-1] * cos(phi_2) / self.vdes['I0']))
+	# 		else:
+	# 			psi = abs(phi_2)
+	# 		psi = psi - pi + base['I0']
+	# 		self.policy_pubs['D1'].publish('D1 close')
 
-			return {'D0': phi_1, 'D1': phi_2+base['D1'], 'I0': psi}
+	# 		return {'D0': phi_1, 'D1': phi_2+base['D1'], 'I0': psi}
 
-		#============== no defender is close =============#
-		else:
-			dact = dstrategy(self)
-			iact = istrategy(self)
-			for role in self.players:
-				if 'D' in role:
-					self.policy_pubs[role].publish(dact['policy'])
-				if 'I' in role:
-					self.policy_pubs[role].publish(iact['policy'])
-			return {'D0': dact['D0'], 'D1': dact['D1'], 'I0': iact['I0']}
+	# 	#============== no defender is close =============#
+	# 	else:
+	# 		dact = dstrategy(self)
+	# 		iact = istrategy(self)
+	# 		for role in self.players:
+	# 			if 'D' in role:
+	# 				self.policy_pubs[role].publish(dact['policy'])
+	# 			if 'I' in role:
+	# 				self.policy_pubs[role].publish(iact['policy'])
+	# 		return {'D0': dact['D0'], 'D1': dact['D1'], 'I0': iact['I0']}
 
 	def hover(self, role, x):
 		self.updateGoal(role, x)
@@ -491,21 +685,23 @@ class RAgame(object):
 
 		if not self.end:
 			# print('Playing')
-			if close_adjust:
-				actions = self.c_strategy(dstrategy=dstrategy, istrategy=istrategy)
-			else:
-				dact = dstrategy(self)
-				iact = istrategy(self)
-				actions = {'D0': dact['D0'], 'D1': dact['D1'], 'I0': iact['I0']}
-				for role in self.players:
-					if 'D' in role:
-						self.policy_pubs[role].publish(dact['policy'])
-					elif 'I' in role:
-						self.policy_pubs[role].publish(iact['policy'])
+			# if close_adjust:
+			# 	actions = self.c_strategy(dstrategy=dstrategy, istrategy=istrategy)
+			# else:
+			# 	dact = dstrategy(self)
+			# 	iact = istrategy(self)
+			# 	actions = {'D0': dact['D0'], 'D1': dact['D1'], 'I0': iact['I0']}
+			# 	for role in self.players:
+			# 		if 'D' in role:
+			# 			self.policy_pubs[role].publish(dact['policy'])
+			# 		elif 'I' in role:
+			# 			self.policy_pubs[role].publish(iact['policy'])
+			acts = self.strategy()
 
 			for role in self.players:
 				vx = self.vdes[role] * cos(actions[role])
 				vy = self.vdes[role] * sin(actions[role])
+				self.policy_pubs[role].publish(acts['p_'+role])
 				cmdV = Twist()
 				cmdV.linear.x = vx
 				cmdV.linear.y = vy
@@ -550,6 +746,8 @@ if __name__ == '__main__':
 	logger_dir = rospy.get_param("~logger_dir", '')
 	Ds = rospy.get_param("~Ds", '').split(',')
 	Is = rospy.get_param("~Is", '').split(',')
+	dstrategy = rospy.get_param("~dstrategy", '')
+	istrategy = rospy.get_param("~istrategy", '')
 
 	zDs = rospy.get_param("~zDs", '')
 	zIs = rospy.get_param("~zIs", '')
@@ -567,6 +765,7 @@ if __name__ == '__main__':
 	game = RAgame(zDs, zIs, rate=10, 
 				  param_file=param_file,
 				  Ds=Ds, Is=Is,
+				  dstrategy=dstrategy, istrategy=istrategy,
 				  logger_dir=logger_dir)
 
 	rospy.Timer(rospy.Duration(1.0/15), game.iteration)
