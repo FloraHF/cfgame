@@ -5,6 +5,8 @@ from copy import deepcopy
 import rospy
 import numpy as np
 from math import sin, cos, sqrt, atan2, asin, acos, pi
+import cmath as cm
+from scipy.optimize import NonlinearConstraint, minimize
 
 # import tensorflow as tf
 # from tensorflow.keras.models import load_model
@@ -37,7 +39,7 @@ class RAgame(object):
 							'w': self.w_strategy,
 							'h':  self.h_strategy,}
 		self.dstrategy = dstrategy
-		self.istrategy = istrategy							
+		self.istrategy = istrategy					
 		self.last_act = dict()
 
 		self.param_id = param_file.split('.')[0].split('_')[-1]
@@ -106,10 +108,17 @@ class RAgame(object):
 		self.a = vd/vi
 		if self.a >= 1:
 			self.policy_dict['f'] = self.f_strategy_fastD
-			self.strategy = mixWrapper(self.policy_dict[self.dstrategy], self.policy_dict[self.istrategy])
+			self.strategy = self.strategy_fastD
+			# self.strategy_wrapper = mixWrapper
+			# self.strategy = self.f_strategy_slowD
+			# self.strategy = mixWrapper(self.policy_dict[self.dstrategy], self.policy_dict[self.istrategy])
 		else:
 			self.policy_dict['f'] = self.f_strategy_slowD
-			self.strategy = closeWrapper(self.policy_dict[self.dstrategy], self.policy_dict[self.istrategy])
+			self.strategy = self.strategy_slowD
+			# self.strategy_wrapper = closeWrapper
+			# self.strategy = self.f_strategy_slowD
+			# self.strategy = closeWrapper(self.policy_dict[self.dstrategy], self.policy_dict[self.istrategy])
+		# self.strategy = closeWrapper(self)
 
 		for i, (D, z) in enumerate(zip(Ds, zDs)):
 			if D != '':
@@ -184,7 +193,7 @@ class RAgame(object):
 			f.write('vi,%.2f'%vi + '\n')
 			f.write('rc,%.2f'%self.r + '\n')
 			if vd < vi:
-				f.write('r_close,%.2f'%self.r_close/self.r + '\n')
+				f.write('r_close,%.2f'%(self.r_close/self.r) + '\n')
 				f.write('k_close,%.2f'%self.k_close + '\n')	
 				f.write('S,%.10f\n'%self.S)
 				f.write('T,%.10f\n'%self.T)
@@ -327,6 +336,14 @@ class RAgame(object):
 		a2 = asin(self.r/d2)
 		return d1, d2, a1, a2
 
+	@closeWrapper
+	def strategy_slowD(self):
+		pass
+
+	@mixWrapper
+	def strategy_fast(self):
+		pass
+
 	def dr_intersection(self):
 		D1_I, D2_I, D1_D2 = self.get_vecs()
 		x, y, z = self.get_xyz(D1_I, D2_I, D1_D2)
@@ -403,7 +420,7 @@ class RAgame(object):
 
 		return actions
 
-	def w_strategy(self, xs):
+	def w_strategy(self):
 		D1_I, D2_I, D1_D2 = self.get_vecs()
 		base = self.get_base(D1_I, D2_I, D1_D2)
 		d1, d2, a1, a2 = self.get_alpha(D1_I, D2_I, D1_D2)
@@ -415,7 +432,7 @@ class RAgame(object):
 		psi_min = -(tht - (a1 + pi/2 - self.gmm))
 		psi_max = -(a2 + pi/2 - self.gmm)
 
-		I_T = np.concatenate((self.projection_on_target(xs['I0']) - xs['I0'], [0]))
+		I_T = np.concatenate((self.projection_on_target(self.xs['I0']) - self.xs['I0'], [0]))
 		angT = atan2(np.cross(-D2_I, I_T)[-1], np.dot(-D2_I, I_T))
 		psi = np.clip(angT, psi_min, psi_max)
 		# print(angT, psi_min, psi_max, psi)
@@ -432,33 +449,13 @@ class RAgame(object):
 		return acts
 
 	@Iwin_wrapper
-	def nn_strategy(self, xs):
+	def nn_strategy(self):
 		acts = dict()
-		x = np.concatenate((xs['D0'], xs['I0'], xs['D1']))
+		x = np.concatenate((self.xs['D0'], self.xs['I0'], self.xs['D1']))
 		for role, p in self.policies.items():
 			acts[role] = p.predict(x[None])[0]
 		# print('nn')
 		return acts
-
-	# def nn_strategy(self):
-	# 	acts = dict()
-	# 	x = np.concatenate((self.xs['D0'], self.xs['I0'], self.xs['D1']))
-	# 	for role, p in self.policy_fns.items():
-	# 		acts[role] = p.predict(x[None])[0]
-	# 	acts['policy'] = 'nn_strategy'
-	# 	return acts
-
-	# def f_strategy(self):
-	# 	psis, phis = deep_target_strategy(self.xs['I0'], (self.xs['D0'], self.xs['D1']), self.line_target, self.a, self.r)
-	# 	# print(psis, phis)
-	# 	acts = dict()
-	# 	for role, p in self.players.items():
-	# 		if 'D' in role:
-	# 			acts[role] = phis[int(role[-1])]
-	# 		elif 'I' in role:
-	# 			acts[role] = psis[int(role[-1])]
-	# 	acts['policy'] = 'f_strategy'
-	# 	return acts
 
 	def f_strategy_fastD(self):
 		dr = DominantRegion(self.r, self.a, self.xs['I0'], (self.xs['D0'], self.xs['D1']))
@@ -572,111 +569,6 @@ class RAgame(object):
 
 		return {'D0': phi_1, 'D1': phi_2, 'I0': psi, 'policy': 'h_strategy'}
 
-	# def i_strategy(self):
-		
-	# 	D1_I, D2_I, D1_D2 = self.get_vecs()
-	# 	base = self.get_base(D1_I, D2_I, D1_D2)
-	# 	d1, d2, a1, a2 = self.get_alpha(D1_I, D2_I, D1_D2)
-	# 	tht = self.get_theta(D1_I, D2_I, D1_D2)
-		
-	# 	LB = acos(self.a)
-		
-	# 	phi_2 = pi/2 - a2 + 0.01
-	# 	psi = -(pi/2 - LB + a2)
-	# 	d = d2*(sin(phi_2)/sin(LB))
-	# 	l1 = sqrt(d1**2 + d**2 - 2*d1*d*cos(tht + psi))
-	# 	cA = (d**2 + l1**2 - d1**2)/(2*d*l1)
-	# 	sA = sin(tht + psi)*(d1/l1)
-	# 	A = atan2(sA, cA)
-	# 	phi_1 = -(pi - (tht + psi) - A) + base['D0']
-	# 	phi_2 = pi/2 - a2 + base['D1']
-	# 	psi = -(pi/2 - LB + a2) + base['I0']
-	# 	return {'D0': phi_1, 'D1': phi_2, 'I0': psi,'policy': 'i_strategy'}
-
-	# def m_strategy(self):
-	# 	D1_I, D2_I, D1_D2 = self.get_vecs()
-	# 	x, y, z = self.get_xyz(D1_I, D2_I, D1_D2)
-	# 	if x < 0.1:
-	# 		act = self.h_strategy()
-	# 	else:
-	# 		act = self.i_strategy()
-	# 	return act
-
-	# def c_strategy(self, dstrategy=nn_strategy, istrategy=nn_strategy):
-	# 	D0_I0, D1_I0, D0_D1 = self.get_vecs()
-	# 	base = self.get_base(D0_I0, D1_I0, D0_D1)
-	# 	print(self.r_close)
-	# 	# print(self.vnorms)
-		
-	# 	#=============== both defenders are close ===============#
-	# 	if np.linalg.norm(D0_I0) < self.r_close and np.linalg.norm(D1_I0) < self.r_close:  # in both range
-	# 		for role in self.players:
-	# 			self.policy_pubs[role].publish('both close')
-	# 		vD1 = np.concatenate((self.vs['D0'], [0]))
-	# 		phi_1 = atan2(np.cross(D0_I0, vD1)[-1], np.dot(D0_I0, vD1))
-	# 		phi_1 = self.k_close*phi_1 + base['D0']
-
-	# 		vD2 = np.concatenate((self.vs['D1'], [0]))
-	# 		phi_2 = atan2(np.cross(D1_I0, vD2)[-1], np.dot(D1_I0, vD2))
-	# 		phi_2 = self.k_close*phi_2 + base['D1']		 
-			
-	# 		psi = -self.get_theta(D0_I0, D1_I0, D0_D1)/2 + base['I0']
-
-	# 		return {'D0': phi_1, 'D1': phi_2, 'I0': psi}
-
-	# 	#=============== only D1 is close ===============#
-	# 	elif np.linalg.norm(D0_I0) < self.r_close:  # in D1's range
-	# 		# print(self.r_close)
-	# 		# print(self.vs['D0'])
-	# 		vD1 = np.concatenate((self.vs['D0'], [0]))
-	# 		phi_1 = atan2(np.cross(D0_I0, vD1)[-1], np.dot(D0_I0, vD1))
-	# 		phi_1 = self.k_close*phi_1
-	# 		self.policy_pubs['D0'].publish('D0 close')
-
-	# 		act = dstrategy(self)
-	# 		phi_2 = act['D1']
-	# 		self.policy_pubs['D1'].publish(act['policy'])
-
-	# 		if self.vdes['I0'] > self.vnorms['D0'][-1]:
-	# 			psi = - abs(acos(self.vnorms['D0'][-1] * cos(phi_1) / self.vdes['I0']))
-	# 		else:
-	# 			psi = - abs(phi_1)
-	# 		psi = pi - self.get_theta(D0_I0, D1_I0, D0_D1) + psi + base['I0']
-	# 		self.policy_pubs['I0'].publish('D0 close')
-
-	# 		return {'D0': phi_1+base['D0'], 'D1': phi_2, 'I0': psi}
-
-	# 	#=============== only D2 is close ===============#
-	# 	elif np.linalg.norm(D1_I0) < self.r_close:
-	# 		vD2 = np.concatenate((self.vs['D1'], [0]))
-	# 		phi_2 = atan2(np.cross(D1_I0, vD2)[-1], np.dot(D1_I0, vD2))
-	# 		act = dstrategy(self)
-	# 		phi_1 = act['D0']
-	# 		self.policy_pubs['D0'].publish(act['policy'])
-
-	# 		phi_2 = self.k_close * phi_2
-	# 		self.policy_pubs['D1'].publish('D1 close')
-
-	# 		if self.vdes['I0'] > self.vnorms['D1'][-1]:
-	# 			psi = abs(acos(self.vnorms['D1'][-1] * cos(phi_2) / self.vdes['I0']))
-	# 		else:
-	# 			psi = abs(phi_2)
-	# 		psi = psi - pi + base['I0']
-	# 		self.policy_pubs['D1'].publish('D1 close')
-
-	# 		return {'D0': phi_1, 'D1': phi_2+base['D1'], 'I0': psi}
-
-	# 	#============== no defender is close =============#
-	# 	else:
-	# 		dact = dstrategy(self)
-	# 		iact = istrategy(self)
-	# 		for role in self.players:
-	# 			if 'D' in role:
-	# 				self.policy_pubs[role].publish(dact['policy'])
-	# 			if 'I' in role:
-	# 				self.policy_pubs[role].publish(iact['policy'])
-	# 		return {'D0': dact['D0'], 'D1': dact['D1'], 'I0': iact['I0']}
-
 	def hover(self, role, x):
 		self.updateGoal(role, x)
 		self.goal_pubs[role].publish(self.goal_msgs[role])
@@ -684,23 +576,11 @@ class RAgame(object):
 	def game(self, dt, dstrategy=nn_strategy, istrategy=nn_strategy, close_adjust=True):
 
 		if not self.end:
-			# print('Playing')
-			# if close_adjust:
-			# 	actions = self.c_strategy(dstrategy=dstrategy, istrategy=istrategy)
-			# else:
-			# 	dact = dstrategy(self)
-			# 	iact = istrategy(self)
-			# 	actions = {'D0': dact['D0'], 'D1': dact['D1'], 'I0': iact['I0']}
-			# 	for role in self.players:
-			# 		if 'D' in role:
-			# 			self.policy_pubs[role].publish(dact['policy'])
-			# 		elif 'I' in role:
-			# 			self.policy_pubs[role].publish(iact['policy'])
+			# acts = self.strategy(self)
 			acts = self.strategy()
-
 			for role in self.players:
-				vx = self.vdes[role] * cos(actions[role])
-				vy = self.vdes[role] * sin(actions[role])
+				vx = self.vdes[role] * cos(acts[role])
+				vy = self.vdes[role] * sin(acts[role])
 				self.policy_pubs[role].publish(acts['p_'+role])
 				cmdV = Twist()
 				cmdV.linear.x = vx
@@ -710,6 +590,7 @@ class RAgame(object):
 				self.goal_pubs[role].publish(self.goal_msgs[role])
 
 			if self.is_capture():
+				print(self.time_inrange)
 				if self.last_cap:
 					self.time_inrange += dt
 				else:

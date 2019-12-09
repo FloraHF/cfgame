@@ -79,23 +79,26 @@ class GameRecorder(object):
 		with open(self._a_dirc, 'a') as f:
 			f.write('%.3f, %.3f\n'%(t, a.data))
 
+	def _rotate(self, data):
+		return np.array([-data[1], data[0]])
+
 	def _getLocD1(self, data):
-		self._locations['D1'].record(self._get_time() - self._init_time, np.array([data.position[0], data.position[1]]))
+		self._locations['D1'].record(self._get_time() - self._init_time, self._rotate(np.array([data.position[0], data.position[1]])))
 
 	def _getLocD2(self, data):
-		self._locations['D2'].record(self._get_time() - self._init_time, np.array([data.position[0], data.position[1]]))
+		self._locations['D2'].record(self._get_time() - self._init_time, self._rotate(np.array([data.position[0], data.position[1]])))
 
 	def _getLocI(self, data):
-		self._locations['I1'].record(self._get_time() - self._init_time, np.array([data.position[0], data.position[1]]))
+		self._locations['I1'].record(self._get_time() - self._init_time, self._rotate(np.array([data.position[0], data.position[1]])))
 
 	def _getHeadingD1(self, data):
-		self._headings['D1'].record(self._get_time() - self._init_time, data.data)
+		self._headings['D1'].record(self._get_time() - self._init_time, data.data-pi/2)
 
 	def _getHeadingD2(self, data):
-		self._headings['D2'].record(self._get_time() - self._init_time, data.data)
+		self._headings['D2'].record(self._get_time() - self._init_time, data.data-pi/2)
 
 	def _getHeadingI(self, data):
-		self._headings['I1'].record(self._get_time() - self._init_time, data.data)
+		self._headings['I1'].record(self._get_time() - self._init_time, data.data-pi/2)
 
 	def _init_locs_plot(self):
 		fig, ax = plt.subplots(tight_layout=True)
