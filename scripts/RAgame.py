@@ -115,6 +115,7 @@ class RAgame(object):
 		else:
 			self.policy_dict['f'] = self.f_strategy_slowD
 			self.strategy = self.strategy_slowD
+			self.gmm0 = acos(self.a)
 			# self.strategy_wrapper = closeWrapper
 			# self.strategy = self.f_strategy_slowD
 			# self.strategy = closeWrapper(self.policy_dict[self.dstrategy], self.policy_dict[self.istrategy])
