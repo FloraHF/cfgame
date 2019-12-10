@@ -258,6 +258,12 @@ class RAgame(object):
 		d1 = np.linalg.norm(self.xs['D1'] - self.xs['I0'])
 		return d0 < self.r or d1 < self.r
 	
+	def is_intarget(self, xi):
+		if self.target.level(xi) <= 0:
+			return True
+		else:
+			return False
+
 	def updateGoal(self, role, goal=None, init=False):
 
 		if init:
@@ -452,6 +458,11 @@ class RAgame(object):
 	def nn_strategy(self):
 		acts = dict()
 		x = np.concatenate((self.xs['D0'], self.xs['I0'], self.xs['D1']))
+		for i in [0, 2, 4]:
+			x[i] -= self.target.x0
+		for i in [1, 3, 5]:
+			x[i] -= self.target.y0
+
 		for role, p in self.policies.items():
 			acts[role] = p.predict(x[None])[0]
 		# print('nn')
@@ -599,7 +610,7 @@ class RAgame(object):
 				# print(self._time_inrange)
 			if self.time_inrange > self.cap_time:
 				self.end = True
-				print('!!!!!!!!!!!!!!!!!!captured, game end!!!!!!!!!!!!')
+				print('!!!!!!!!!!!!!!!!!!captured, game ends!!!!!!!!!!!!')
 				for role in self.players:
 					self.xes[role] = deepcopy(self.xs[role])
 				for role in self.players:
@@ -611,6 +622,20 @@ class RAgame(object):
 						self.states[role] = 'hover'
 						self.auto_clients[role]()
 						# print(role + self.states[role])
+			if self.is_intarget(self.xs['I0']):
+				self.end = True
+				print('!!!!!!!!!!!!!!!!!!entered, game ends!!!!!!!!!!!!')
+				for role in self.players:
+					self.xes[role] = deepcopy(self.xs[role])
+				for role in self.players:
+					if 'D' in role:
+						if self.states[role] != 'land':
+							self.states[role] = 'land'
+							self.land_clients[role]()
+					elif 'I' in role:
+						self.states[role] = 'hover'
+						self.auto_clients[role]()
+
 
 	def iteration(self, event):
 		for role in self.players:
