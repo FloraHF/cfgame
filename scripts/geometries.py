@@ -21,7 +21,8 @@ class DominantRegion(object):
 
 class LineTarget(object):
 	"""docstring for LineTarget"""
-	def __init__(self, y0=0.5):
+	def __init__(self, y0=-0.5):
+		self.x0 = 0.
 		self.y0 = y0
 		self.type = 'line'
 

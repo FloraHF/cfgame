@@ -74,6 +74,7 @@ class RAgame(object):
 		self.auto_clients = dict()
 		self.land_clients = dict()
 		self.play_clients = dict()
+		# self.NNpolicies = dict()
 
 		script_dir = os.path.dirname(__file__)
 		with open(os.path.join(script_dir+'/params/', param_file), 'r') as f:
@@ -106,6 +107,7 @@ class RAgame(object):
 				if 'delta' in line:
 					self.delta = float(line.split(',')[-1])
 		self.a = vd/vi
+		# print(self.a)
 		if self.a >= 1:
 			self.policy_dict['f'] = self.f_strategy_fastD
 			self.strategy = self.strategy_fastD
@@ -125,6 +127,7 @@ class RAgame(object):
 			if D != '':
 				role = 'D'+str(i)
 				self.players[role] = D
+				# self.NNpolicies[role] = load_model(script_dir+'/Policies/PolicyFn_'+role+'.h5')
 				self.zs[role] = float(z)
 				self.goal_msgs[role] = PoseStamped()
 				# print(D, role)
@@ -153,6 +156,7 @@ class RAgame(object):
 			if I != '':
 				role = 'I'+str(i)
 				self.players[role] = I
+				# self.NNpolicies[role] = load_model('Policies/PolicyFn_'+role+'.h5')
 				self.zs[role] = float(z)
 				self.goal_msgs[role] = PoseStamped()
 				self.updateGoal(role, goal=self.x0s[role], init=True)
@@ -348,7 +352,7 @@ class RAgame(object):
 		pass
 
 	@mixWrapper
-	def strategy_fast(self):
+	def strategy_fastD(self):
 		pass
 
 	def dr_intersection(self):
@@ -455,7 +459,8 @@ class RAgame(object):
 
 		return acts
 
-	@Iwin_wrapper
+	# @Iwin_wrapper
+	@nullWrapper
 	def nn_strategy(self):
 		acts = dict()
 		x = np.concatenate((self.xs['D0'], self.xs['I0'], self.xs['D1']))
@@ -464,7 +469,7 @@ class RAgame(object):
 		for i in [1, 3, 5]:
 			x[i] -= self.target.y0
 
-		for role, p in self.policies.items():
+		for role, p in self.policy_fns.items():
 			acts[role] = p.predict(x[None])[0]
 		# print('nn')
 		return acts
@@ -474,7 +479,7 @@ class RAgame(object):
 		xt = self.target.deepest_point_in_dr(dr, target=self.target)
 		# xt = self.deepest_in_target(xs)
 
-		xi, xds = xs['I0'], (xs['D0'], xs['D1'])
+		xi, xds = self.xs['I0'], (self.xs['D0'], self.xs['D1'])
 
 		IT = np.concatenate((xt - xi, np.zeros((1,))))
 		DTs = []
@@ -498,7 +503,8 @@ class RAgame(object):
 				acts['p_'+role] = 'f_strategy'
 		return acts
 
-	@Iwin_wrapper
+	# @Iwin_wrapper
+	@nullWrapper
 	def f_strategy_slowD(self):
 		D1_I, D2_I, D1_D2 = self.get_vecs()
 		base = self.get_base(D1_I, D2_I, D1_D2)

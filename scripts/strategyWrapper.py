@@ -28,7 +28,7 @@ def Iwin_wrapper(strategy):
 def nullWrapper(strategy):
 
 	def wrapper(*args, **kwargs):
-		acts = strategy(args[1])
+		acts = strategy(args[0])
 		for role in args[0].players:
 			acts['p_'+role] = strategy.__name__
 		return acts
@@ -154,8 +154,8 @@ def mixWrapper(strategy):
 
 	def wrapper(*args, **kwargs):
 
-		dact = args[0].policy_dict[args[0].dstrategy](args[0])
-		iact = args[0].policy_dict[args[0].istrategy](args[0])
+		dact = args[0].policy_dict[args[0].dstrategy]()
+		iact = args[0].policy_dict[args[0].istrategy]()
 		
 		action = {'D0': dact['D0'], 'D1': dact['D1'], 'I0': iact['I0']}
 		# print(dact)
