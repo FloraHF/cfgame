@@ -111,17 +111,10 @@ class RAgame(object):
 		if self.a >= 1:
 			self.policy_dict['f'] = self.f_strategy_fastD
 			self.strategy = self.strategy_fastD
-			# self.strategy_wrapper = mixWrapper
-			# self.strategy = self.f_strategy_slowD
-			# self.strategy = mixWrapper(self.policy_dict[self.dstrategy], self.policy_dict[self.istrategy])
 		else:
 			self.policy_dict['f'] = self.f_strategy_slowD
 			self.strategy = self.strategy_slowD
 			self.gmm0 = acos(self.a)
-			# self.strategy_wrapper = closeWrapper
-			# self.strategy = self.f_strategy_slowD
-			# self.strategy = closeWrapper(self.policy_dict[self.dstrategy], self.policy_dict[self.istrategy])
-		# self.strategy = closeWrapper(self)
 
 		for i, (D, z) in enumerate(zip(Ds, zDs)):
 			if D != '':
@@ -185,11 +178,11 @@ class RAgame(object):
 		rospy.Service('allplay', Empty, self.allplay)
 		rospy.Service('allland', Empty, self.allland)
 
-		inffname = script_dir+'/'+logger_dir+'/info.csv'
-		if os.path.exists(inffname):
-			os.remove(inffname)
+		self.inffname = script_dir+'/'+logger_dir+'/info.csv'
+		if os.path.exists(self.inffname):
+			os.remove(self.inffname)
 
-		with open(inffname, 'a') as f:
+		with open(self.inffname, 'a') as f:
 			f.write('paramid,'+self.param_id+'\n')
 			for role, cf in self.players.items():
 				f.write(role + ',' + cf + '\n')
@@ -204,7 +197,9 @@ class RAgame(object):
 				f.write('T,%.10f\n'%self.T)
 				f.write('gmm,%.10f\n'%self.gmm)
 				f.write('D,%.10f\n'%self.D)
-				f.write('delta,%.10f\n'%self.delta)		
+				f.write('delta,%.10f\n'%self.delta)
+			f.write('dstrategy,%s'%self.dstrategy)
+			f.write('istrategy,%s'%self.istrategy)
 
 	# def line_target(self, x):
 	# 	return x[1]
@@ -617,6 +612,8 @@ class RAgame(object):
 				# print(self._time_inrange)
 			if self.time_inrange > self.cap_time:
 				self.end = True
+				with open(self.inffname, 'a') as f:
+					f.write('termination,%s'%'captured')
 				print('!!!!!!!!!!!!!!!!!!captured, game ends!!!!!!!!!!!!')
 				for role in self.players:
 					self.xes[role] = deepcopy(self.xs[role])
@@ -631,6 +628,8 @@ class RAgame(object):
 						# print(role + self.states[role])
 			if self.is_intarget(self.xs['I0']):
 				self.end = True
+				with open(self.inffname, 'a') as f:
+					f.write('termination,%s'%'entered')
 				print('!!!!!!!!!!!!!!!!!!entered, game ends!!!!!!!!!!!!')
 				for role in self.players:
 					self.xes[role] = deepcopy(self.xs[role])
@@ -642,7 +641,6 @@ class RAgame(object):
 					elif 'I' in role:
 						self.states[role] = 'hover'
 						self.auto_clients[role]()
-
 
 	def iteration(self, event):
 		for role in self.players:
