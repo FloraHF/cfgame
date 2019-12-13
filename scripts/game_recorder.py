@@ -31,6 +31,7 @@ class GameRecorder(object):
 
 		script_dir = os.path.dirname(__file__)
 		self._results_dir = os.path.join(script_dir, logger_dir + '/')
+		# self._results_dir = os.path.join('RAgame/exp_results/', logger_dir + '/')
 		self._a_dirc = os.path.join(self._results_dir, 'a.csv')
 		if os.path.exists(self._a_dirc):
 			os.remove(self._a_dirc)

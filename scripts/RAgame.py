@@ -83,9 +83,15 @@ class RAgame(object):
 				if 'x' in line:
 					data = line.split(',')
 					role = data[0][1:]
-					self.x0s[role] = np.array([float(data[1]), float(data[2])])
-					self.xes[role] = np.array([float(data[1]), float(data[2])])
-					self.xs[role] = np.array([float(data[1]), float(data[2])])
+					if 'I' in role:
+						# +.35 could be good
+						self.x0s[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, 0.25])
+						self.xes[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, 0.25])
+						self.xs[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, 0.25])
+					else:
+						self.x0s[role] = np.array([float(data[1]), float(data[2])])
+						self.xes[role] = np.array([float(data[1]), float(data[2])])
+						self.xs[role] = np.array([float(data[1]), float(data[2])])
 				if 'vd' in line:
 					vd = float(line.split(',')[-1])
 				if 'vi' in line:
@@ -94,6 +100,7 @@ class RAgame(object):
 					self.r = float(line.split(',')[-1])
 				if 'r_close' in line:
 					self.r_close = float(line.split(',')[-1])*self.r
+					print(self.r_close)
 				if 'k_close' in line:
 					self.k_close = float(line.split(',')[-1])
 				if 'S' in line:
@@ -106,6 +113,7 @@ class RAgame(object):
 					self.D = float(line.split(',')[-1])
 				if 'delta' in line:
 					self.delta = float(line.split(',')[-1])
+
 		self.a = vd/vi
 		# print(self.a)
 		if self.a >= 1:
@@ -198,8 +206,8 @@ class RAgame(object):
 				f.write('gmm,%.10f\n'%self.gmm)
 				f.write('D,%.10f\n'%self.D)
 				f.write('delta,%.10f\n'%self.delta)
-			f.write('dstrategy,%s'%self.dstrategy)
-			f.write('istrategy,%s'%self.istrategy)
+			f.write('dstrategy,%s\n'%self.dstrategy)
+			f.write('istrategy,%s\n'%self.istrategy)
 
 	# def line_target(self, x):
 	# 	return x[1]
@@ -411,8 +419,8 @@ class RAgame(object):
 		xt = self.projection_on_target(self.xs['I0'])
 		P = np.concatenate((xt, [0]))
 		I_P = np.concatenate((xt - self.xs['I0'], [0]))
-		D0_I = np.concatenate((xs['I0'] - self.xs['D0'], [0]))
-		D1_I = np.concatenate((xs['I0'] - self.xs['D1'], [0]))
+		D0_I = np.concatenate((self.xs['I0'] - self.xs['D0'], [0]))
+		D1_I = np.concatenate((self.xs['I0'] - self.xs['D1'], [0]))
 
 		xaxis = np.array([1, 0, 0])
 		psi = atan2(np.cross(xaxis, I_P)[-1], np.dot(xaxis, I_P))
@@ -434,9 +442,9 @@ class RAgame(object):
 
 		phi_1 = -(pi/2 - a1)
 		phi_2 =  (pi/2 - a2)
-		delta = (tht - (a1 + a2) - pi + 2*self.gmm)/2
-		psi_min = -(tht - (a1 + pi/2 - self.gmm))
-		psi_max = -(a2 + pi/2 - self.gmm)
+		delta = (tht - (a1 + a2) - pi + 2*self.gmm0)/2
+		psi_min = -(tht - (a1 + pi/2 - self.gmm0))
+		psi_max = -(a2 + pi/2 - self.gmm0)
 
 		I_T = np.concatenate((self.projection_on_target(self.xs['I0']) - self.xs['I0'], [0]))
 		angT = atan2(np.cross(-D2_I, I_T)[-1], np.dot(-D2_I, I_T))
@@ -454,8 +462,8 @@ class RAgame(object):
 
 		return acts
 
-	# @Iwin_wrapper
-	@nullWrapper
+	@Iwin_wrapper
+	# @nullWrapper
 	def nn_strategy(self):
 		acts = dict()
 		x = np.concatenate((self.xs['D0'], self.xs['I0'], self.xs['D1']))
@@ -471,8 +479,8 @@ class RAgame(object):
 
 	def f_strategy_fastD(self):
 		dr = DominantRegion(self.r, self.a, self.xs['I0'], (self.xs['D0'], self.xs['D1']))
-		xt = self.target.deepest_point_in_dr(dr, target=self.target)
-		# xt = self.deepest_in_target(xs)
+		# xt = self.target.deepest_point_in_dr(dr, target=self.target)
+		xt = self.target.deepest_point_in_dr(dr)
 
 		xi, xds = self.xs['I0'], (self.xs['D0'], self.xs['D1'])
 
@@ -492,14 +500,14 @@ class RAgame(object):
 		for role, p in self.players.items():
 			if 'D' in role:
 				acts[role] = phis[int(role[-1])]
-				acts['p_'+role] = 'f_strategy'
+				acts['p_'+role] = 'f_strategy_fastD'
 			elif 'I' in role:
 				acts[role] = psis[int(role[-1])]
-				acts['p_'+role] = 'f_strategy'
+				acts['p_'+role] = 'f_strategy_fastD'
 		return acts
 
-	# @Iwin_wrapper
-	@nullWrapper
+	@Iwin_wrapper
+	# @nullWrapper
 	def f_strategy_slowD(self):
 		D1_I, D2_I, D1_D2 = self.get_vecs()
 		base = self.get_base(D1_I, D2_I, D1_D2)
@@ -549,6 +557,7 @@ class RAgame(object):
 	# 	return {'D0': phi_1, 'D1': phi_2, 'I0': psi, 'policy': 'z_strategy'}
 
 	@Iwin_wrapper
+	# @nullWrapper
 	def h_strategy(self):
 		D1_I, D2_I, D1_D2 = self.get_vecs()
 		base = self.get_base(D1_I, D2_I, D1_D2)
@@ -613,7 +622,7 @@ class RAgame(object):
 			if self.time_inrange > self.cap_time:
 				self.end = True
 				with open(self.inffname, 'a') as f:
-					f.write('termination,%s'%'captured')
+					f.write('termination,%s\n'%'captured')
 				print('!!!!!!!!!!!!!!!!!!captured, game ends!!!!!!!!!!!!')
 				for role in self.players:
 					self.xes[role] = deepcopy(self.xs[role])

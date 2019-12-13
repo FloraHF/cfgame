@@ -13,15 +13,17 @@ def Iwin_wrapper(strategy):
 		d1, d2, a1, a2 = args[0].get_alpha(D1_I, D2_I, D1_D2)
 		tht = args[0].get_theta(D1_I, D2_I, D1_D2)
 
-		if tht - (a1 + a2) - (pi - 2*args[0].gmm) > 0:
-			acts = args[0].w_strategy()
-			return acts
-		else:
-			acts = strategy(args[0])
+		acts = strategy(args[0])
+		for role in args[0].players:
+			acts['p_'+role] = strategy.__name__
+
+		if tht - (a1 + a2) - pi + 2*args[0].gmm0 > 0:
+			adj_acts = args[0].w_strategy()
+			acts['I0'] = adj_acts['I0']
+			acts['p_I0'] = adj_acts['p_I0']
 			# print(strategy.__name__)
-			for role in args[0].players:
-				acts['p_'+role] = strategy.__name__
-			return acts
+
+		return acts
 
 	return wrapper
 
@@ -67,7 +69,7 @@ def closeWrapper(strategy):
 			vD1 = np.concatenate((vs['D0'], [0]))
 			phi_1 = atan2(np.cross(D1_I, vD1)[-1], np.dot(D1_I, vD1))
 			phi_1 = game.k_close*phi_1
-			# print(phi_1)
+			# print('phi_1', phi_1)
 
 			raw_act = game.policy_dict[game.dstrategy]()
 			phi_2 = raw_act['D1']
@@ -81,6 +83,11 @@ def closeWrapper(strategy):
 				psi = - abs(acos(game.vnorms['D0'][-1]*cos(phi_1)/game.vdes['I0']))
 
 			psi = max(psi, angT) + base['D0']
+			if psi > angT:
+				print('psi')
+			else:
+				print('angT')
+			print((psi+base['D0'])*180/3.14, (angT+base['D0'])*180/3.14)
 
 			action = {'D0': phi_1+base['D0'], 'D1': phi_2, 'I0': psi}
 			action['p_D0'] = 'D0 close'
@@ -93,6 +100,7 @@ def closeWrapper(strategy):
 			vD2 = np.concatenate((vs['D1'], [0]))
 			phi_2 = atan2(np.cross(D2_I, vD2)[-1], np.dot(D2_I, vD2))
 			phi_2 = game.k_close * phi_2
+			print('phi_2', phi_2)
 
 			raw_act = game.policy_dict[game.dstrategy]()
 			# print(raw_act)

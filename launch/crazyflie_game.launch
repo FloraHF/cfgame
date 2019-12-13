@@ -12,7 +12,7 @@
   <arg name="server" default="192.168.2.230" />
   <arg name="port" default="3883" />
   <arg name="param_file" default="traj_param_11.csv" />
-  <arg name="res_file" default="res111" />
+  <arg name="res_file" default="res116" />
   <arg name="dstrategy" default="nn" />
   <arg name="istrategy" default="nn" />
 

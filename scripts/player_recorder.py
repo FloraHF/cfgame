@@ -56,8 +56,10 @@ class PlayerRecorder(object):
 		#			 if current_dirc_id < int(d.split('_')[-1]):
 		#				 current_dirc_id = int(d.split('_')[-1])
 		self._results_dir = os.path.join(script_dir, logger_dir+self._cf_id+'/live/')
+		# self._results_dir = os.path.join('RAgame/exp_results/', logger_dir+self._cf_id+'/live/')
 		# print('player recorder!!!!!!!!!!!!!', self._results_dir)
 		self._data_dir = os.path.join(script_dir, logger_dir+self._cf_id+'/data/')
+		# self._data_dir = os.path.join('RAgame/exp_results/', logger_dir+self._cf_id+'/data/')
 		if not os.path.isdir(self._results_dir):
 			os.makedirs(self._results_dir)
 		if not os.path.isdir(self._data_dir):
