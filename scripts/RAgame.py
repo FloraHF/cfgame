@@ -80,8 +80,8 @@ class RAgame(object):
 		with open(os.path.join(script_dir+'/params/', param_file), 'r') as f:
 			lines = f.readlines()
 			for line in lines:
-				if 'x' in line:
-					data = line.split(',')
+				data = line.split(',')
+				if 'x' in data[0]:
 					role = data[0][1:]
 					if 'I' in role:
 						# +.35 could be good
@@ -92,27 +92,27 @@ class RAgame(object):
 						self.x0s[role] = np.array([float(data[1]), float(data[2])])
 						self.xes[role] = np.array([float(data[1]), float(data[2])])
 						self.xs[role] = np.array([float(data[1]), float(data[2])])
-				if 'vd' in line:
-					vd = float(line.split(',')[-1])
-				if 'vi' in line:
-					vi = float(line.split(',')[-1])
-				if 'rc' in line:
-					self.r = float(line.split(',')[-1])
-				if 'r_close' in line:
-					self.r_close = float(line.split(',')[-1])*self.r
+				if 'vd' == data[0]:
+					vd = float(data[-1])
+				if 'vi' == data[0]:
+					vi = float(data[-1])
+				if 'rc' == data[0]:
+					self.r = float(data[-1])
+				if 'r_close' == data[0]:
+					self.r_close = float(data[-1])*self.r
 					print(self.r_close)
-				if 'k_close' in line:
-					self.k_close = float(line.split(',')[-1])
-				if 'S' in line:
-					self.S = float(line.split(',')[-1])
-				if 'T' in line:
-					self.T = float(line.split(',')[-1])
-				if 'gmm' in line:
-					self.gmm = float(line.split(',')[-1])		
-				if 'D' in line:
-					self.D = float(line.split(',')[-1])
-				if 'delta' in line:
-					self.delta = float(line.split(',')[-1])
+				if 'k_close' == data[0]:
+					self.k_close = float(data[-1])
+				if 'S' == data[0]:
+					self.S = float(data[-1])
+				if 'T' == data[0]:
+					self.T = float(data[-1])
+				if 'gmm' == data[0]:
+					self.gmm = float(data[-1])		
+				if 'D' == data[0]:
+					self.D = float(data[-1])
+				if 'delta' == data[0]:
+					self.delta = float(data[-1])
 
 		self.a = vd/vi
 		# print(self.a)
