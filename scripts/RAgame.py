@@ -49,9 +49,10 @@ class RAgame(object):
 		self.xes = dict()
 		self.goal_msgs = dict()
 		self.policy_fns = dict()
+		self.fk = 0.0
 		self.nv = 20
 
-		self.cap_time = .2
+		self.cap_time = .1
 		self.last_cap = False
 		self.end = False
 		self.time_inrange = 0.
@@ -76,22 +77,13 @@ class RAgame(object):
 		self.play_clients = dict()
 		# self.NNpolicies = dict()
 
+		ofxI = .0 - .0
+		ofxD = .0 - .0
 		script_dir = os.path.dirname(__file__)
 		with open(os.path.join(script_dir+'/params/', param_file), 'r') as f:
 			lines = f.readlines()
 			for line in lines:
 				data = line.split(',')
-				if 'x' in data[0]:
-					role = data[0][1:]
-					if 'I' in role:
-						# +.35 could be good
-						self.x0s[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, 0.25])
-						self.xes[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, 0.25])
-						self.xs[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, 0.25])
-					else:
-						self.x0s[role] = np.array([float(data[1]), float(data[2])])
-						self.xes[role] = np.array([float(data[1]), float(data[2])])
-						self.xs[role] = np.array([float(data[1]), float(data[2])])
 				if 'vd' == data[0]:
 					vd = float(data[-1])
 				if 'vi' == data[0]:
@@ -113,6 +105,19 @@ class RAgame(object):
 					self.D = float(data[-1])
 				if 'delta' == data[0]:
 					self.delta = float(data[-1])
+				if 'offy' == data[0]:
+					self.offy = float(data[-1])
+				if 'x' in data[0]:
+					role = data[0][1:]
+					if 'I' in role:
+						# +.35 could be good
+						self.x0s[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, ofxI])
+						self.xes[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, ofxI])
+						self.xs[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, ofxI])
+					else:
+						self.x0s[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, ofxD])
+						self.xes[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, ofxD])
+						self.xs[role] = np.array([float(data[1]), float(data[2])]) + np.array([0, ofxD])					
 
 		self.a = vd/vi
 		# print(self.a)
@@ -206,6 +211,9 @@ class RAgame(object):
 				f.write('gmm,%.10f\n'%self.gmm)
 				f.write('D,%.10f\n'%self.D)
 				f.write('delta,%.10f\n'%self.delta)
+				f.write('offy,%.10f\n'%(self.offy + ofxD))
+				f.write('offy_dI,%.10f\n'%(ofxI - ofxD))
+				f.write('fk,%.10f\n'%self.fk)
 			f.write('dstrategy,%s\n'%self.dstrategy)
 			f.write('istrategy,%s\n'%self.istrategy)
 
@@ -383,11 +391,12 @@ class RAgame(object):
 		# print('\n')				
 
 		y1 =  cm.sqrt(2*m)/2 - cm.sqrt(-(2*p + 2*m + cm.sqrt(2)*q/cm.sqrt(m)))/2 - b/4
-		# y2 =  cm.sqrt(2*m)/2 + cm.sqrt(-(2*p + 2*m + cm.sqrt(2)*q/cm.sqrt(m)))/2 - b/4
+		y2 =  cm.sqrt(2*m)/2 + cm.sqrt(-(2*p + 2*m + cm.sqrt(2)*q/cm.sqrt(m)))/2 - b/4
 		# y3 = -cm.sqrt(2*m)/2 - cm.sqrt(-(2*p + 2*m - cm.sqrt(2)*q/cm.sqrt(m)))/2 - b/4
 		# y4 = -cm.sqrt(2*m)/2 + cm.sqrt(-(2*p + 2*m - cm.sqrt(2)*q/cm.sqrt(m)))/2 - b/4
 
-		return np.array([y1.real, 0])
+		# return np.array([y1.real, 0])
+		return np.array([y1.real, 0]), np.array([y2.real, 0])
 
 	def projection_on_target(self, x):
 		def dist(xt):
@@ -512,16 +521,21 @@ class RAgame(object):
 		D1_I, D2_I, D1_D2 = self.get_vecs()
 		base = self.get_base(D1_I, D2_I, D1_D2)
 		x, y, z = self.get_xyz(D1_I, D2_I, D1_D2)
-		xt = self.dr_intersection()
+		xtI, xtD = self.dr_intersection()
 		# xt = self.deepest_in_target(xs)
 
-		P = np.concatenate((xt, [0]))
+		Pi = np.concatenate((xtI, [0]))
+		Pd = np.concatenate((xtD, [0]))
+		P = self.fk*Pd + (1-self.fk)*Pi
+
 		D1_ = np.array([0, -z, 0])
 		D2_ = np.array([0,  z, 0])
 		I_ = np.array([x, y, 0])
+
+
 		D1_P = P - D1_
 		D2_P = P - D2_
-		I_P = P - I_
+		I_P = Pi - I_
 		D1_I_ = I_ - D1_
 		D2_I_ = I_ - D2_
 		D1_D2_ = D2_ - D1_
@@ -538,7 +552,7 @@ class RAgame(object):
 
 	# def z_strategy(self):
 	# 	D1_I, D2_I, D1_D2 = self.get_vecs()
-	# 	base = self.get_base(D1_I, D2_I, D1_D2)
+	# 	base = self.get_base(Ddef f1_I, D2_I, D1_D2)
 	# 	d1, d2 = self.get_d(D1_I, D2_I, D1_D2)
 	# 	tht = self.get_theta(D1_I, D2_I, D1_D2)
 	# 	phi_1 = -pi / 2

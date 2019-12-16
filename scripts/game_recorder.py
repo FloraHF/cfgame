@@ -145,6 +145,8 @@ class GameRecorder(object):
 
 		if len(xD1) > 100 and len(xD2) > 100 and len(xI) > 100:
 			self._locs_plot['axs'].clear()
+
+			self._locs_plot['axs'].plot([.5, .5], [-1.2, 1.2,], 'r')
 			self._locs_plot['axs'].plot(xD1[100:-1, 0], xD1[100:-1, 1], 'b')
 			self._locs_plot['axs'].plot(xD2[100:-1, 0], xD2[100:-1, 1], 'g')
 			self._locs_plot['axs'].plot(xI[100:-1, 0], xI[100:-1, 1], 'r')

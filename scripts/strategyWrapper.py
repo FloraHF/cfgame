@@ -83,11 +83,6 @@ def closeWrapper(strategy):
 				psi = - abs(acos(game.vnorms['D0'][-1]*cos(phi_1)/game.vdes['I0']))
 
 			psi = max(psi, angT) + base['D0']
-			if psi > angT:
-				print('psi')
-			else:
-				print('angT')
-			print((psi+base['D0'])*180/3.14, (angT+base['D0'])*180/3.14)
 
 			action = {'D0': phi_1+base['D0'], 'D1': phi_2, 'I0': psi}
 			action['p_D0'] = 'D0 close'
@@ -100,7 +95,7 @@ def closeWrapper(strategy):
 			vD2 = np.concatenate((vs['D1'], [0]))
 			phi_2 = atan2(np.cross(D2_I, vD2)[-1], np.dot(D2_I, vD2))
 			phi_2 = game.k_close * phi_2
-			print('phi_2', phi_2)
+			# print('phi_2', phi_2)
 
 			raw_act = game.policy_dict[game.dstrategy]()
 			# print(raw_act)
