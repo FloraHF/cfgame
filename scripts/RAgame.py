@@ -77,8 +77,8 @@ class RAgame(object):
 		self.play_clients = dict()
 		# self.NNpolicies = dict()
 
-		ofxI = .0 - .0
-		ofxD = .0 - .0
+		ofxI = .1 + .0
+		ofxD = .0 + .0
 		script_dir = os.path.dirname(__file__)
 		with open(os.path.join(script_dir+'/params/', param_file), 'r') as f:
 			lines = f.readlines()
@@ -367,12 +367,16 @@ class RAgame(object):
 		pass
 
 	def dr_intersection(self):
+
+		a = self.get_a()
+		a = self.a
+
 		D1_I, D2_I, D1_D2 = self.get_vecs()
 		x, y, z = self.get_xyz(D1_I, D2_I, D1_D2)
 
-		A = -self.a**2 + 1
-		B =  2*self.a**2*x 
-		C = -self.a**2*(x**2 + y**2) + z**2 + self.r**2
+		A = -a**2 + 1
+		B =  2*a**2*x 
+		C = -a**2*(x**2 + y**2) + z**2 + self.r**2
 		a4, a3, a2, a1, a0 = A**2, 2*A*B, B**2+2*A*C-4*self.r**2, 2*B*C, C**2-4*self.r**2*z**2
 		b, c, d, e = a3/a4, a2/a4, a1/a4, a0/a4
 		p = (8*c - 3*b**2)/8
