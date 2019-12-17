@@ -77,7 +77,7 @@ class RAgame(object):
 		self.play_clients = dict()
 		# self.NNpolicies = dict()
 
-		ofxI = .1 + .0
+		ofxI = .195 + .0 # .195
 		ofxD = .0 + .0
 		script_dir = os.path.dirname(__file__)
 		with open(os.path.join(script_dir+'/params/', param_file), 'r') as f:
@@ -275,6 +275,7 @@ class RAgame(object):
 		return d0 < self.r or d1 < self.r
 	
 	def is_intarget(self, xi):
+		print(xi, self.target.level(xi))
 		if self.target.level(xi) <= 0:
 			return True
 		else:

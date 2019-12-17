@@ -11,8 +11,8 @@
   <!-- arguments -->
   <arg name="server" default="192.168.2.230" />
   <arg name="port" default="3883" />
-  <arg name="param_file" default="traj_param_sd3.csv" />
-  <arg name="res_file" default="resfd33" />
+  <arg name="param_file" default="traj_param_fd1.csv" />
+  <arg name="res_file" default="resfd111" />
   <arg name="dstrategy" default="f" />
   <arg name="istrategy" default="f" />
 
