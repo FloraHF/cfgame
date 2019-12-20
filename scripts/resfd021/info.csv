@@ -1,0 +1,13 @@
+paramid,fd0
+D0,cf3
+xD0,-0.85000, 0.20000
+D1,cf4
+xD1,0.85000, 0.20000
+I0,cf0
+xI0,-0.20000, 0.50000
+vd,0.25
+vi,0.24
+rc,0.25
+dstrategy,f
+istrategy,f
+termination,captured
