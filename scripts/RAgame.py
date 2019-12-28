@@ -48,7 +48,7 @@ class RAgame(object):
 		self.x0s = dict()
 		self.xes = dict()
 		self.goal_msgs = dict()
-		self.policy_fns = dict()
+		# self.policy_fns = dict()
 		self.fk = 0.0
 		self.nv = 20
 
@@ -77,7 +77,7 @@ class RAgame(object):
 		self.play_clients = dict()
 		# self.NNpolicies = dict()
 
-		ofxI = .1 + .0 # .195
+		ofxI = .0 + .0 # .195
 		ofxD = .0 + .0
 		script_dir = os.path.dirname(__file__)
 		with open(os.path.join(script_dir+'/params/', param_file), 'r') as f:
@@ -143,7 +143,7 @@ class RAgame(object):
 				self.vnorms[role] = []
 				self.vs[role] = np.zeros(2)
 				self.vdes[role] = vd
-				self.policy_fns[role] = load_model(os.path.join(script_dir, 'Policies/PolicyFn_'+role+'.h5'))
+				# self.policy_fns[role] = load_model(os.path.join(script_dir, 'Policies/PolicyFn_'+role+'.h5'))
 				# self.policy_fns[role] = load_model('PolicyFn_' + role)
 				self.states[role] = None
 
@@ -171,7 +171,7 @@ class RAgame(object):
 				self.vnorms[role] = []
 				self.vs[role] = np.zeros(2)
 				self.vdes[role] = vi
-				self.policy_fns[role] = load_model(os.path.join(script_dir, 'Policies/PolicyFn_'+role+'.h5'))
+				# self.policy_fns[role] = load_model(os.path.join(script_dir, 'Policies/PolicyFn_'+role+'.h5'))
 				# self.policy_fns[role] = load_model('PolicyFn_' + role)
 				self.states[role] = None
 
@@ -476,20 +476,21 @@ class RAgame(object):
 
 		return acts
 
-	@Iwin_wrapper
-	# @nullWrapper
+	# @Iwin_wrapper
+	# # @nullWrapper
 	def nn_strategy(self):
-		acts = dict()
-		x = np.concatenate((self.xs['D0'], self.xs['I0'], self.xs['D1']))
-		for i in [0, 2, 4]:
-			x[i] -= self.target.x0
-		for i in [1, 3, 5]:
-			x[i] -= self.target.y0
+		pass
+	# 	acts = dict()
+	# 	x = np.concatenate((self.xs['D0'], self.xs['I0'], self.xs['D1']))
+	# 	for i in [0, 2, 4]:
+	# 		x[i] -= self.target.x0
+	# 	for i in [1, 3, 5]:
+	# 		x[i] -= self.target.y0
 
-		for role, p in self.policy_fns.items():
-			acts[role] = p.predict(x[None])[0]
-		# print('nn')
-		return acts
+	# 	for role, p in self.policy_fns.items():
+	# 		acts[role] = p.predict(x[None])[0]
+	# 	# print('nn')
+	# 	return acts
 
 	def f_strategy_fastD(self):
 		dr = DominantRegion(self.r, self.a, self.xs['I0'], (self.xs['D0'], self.xs['D1']))
@@ -614,7 +615,7 @@ class RAgame(object):
 		self.updateGoal(role, x)
 		self.goal_pubs[role].publish(self.goal_msgs[role])
 
-	def game(self, dt, dstrategy=nn_strategy, istrategy=nn_strategy, close_adjust=True):
+	def game(self, dt):
 
 		if not self.end:
 			# acts = self.strategy(self)

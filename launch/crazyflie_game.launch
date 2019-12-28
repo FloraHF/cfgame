@@ -11,8 +11,8 @@
   <!-- arguments -->
   <arg name="server" default="192.168.2.230" />
   <arg name="port" default="3883" />
-  <arg name="param_file" default="traj_param_fd0.csv" />
-  <arg name="res_file" default="resfd032" />
+  <arg name="param_file" default="traj_param_fd610.csv" />
+  <arg name="res_file" default="resfd61001" />
   <arg name="dstrategy" default="f" />
   <arg name="istrategy" default="f" />
 
@@ -20,8 +20,8 @@
   <arg name="frame_D1" default="cf3" />
   <arg name="z_D1" default=".4"/>
 
-  <arg name="uri_D2" default="radio://0/88/1M/E7E7E7E704" />
-  <arg name="frame_D2" default="cf4" />
+  <arg name="uri_D2" default="radio://0/88/1M/E7E7E7E705" />
+  <arg name="frame_D2" default="cf5" />
   <arg name="z_D2" default=".4"/>
 
   <arg name="uri_I" default="radio://0/80/1M/E7E7E7E700" />
